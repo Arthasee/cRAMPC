@@ -390,8 +390,8 @@ class CMPC:
         self._system_build()
 
         opt = {
-            "verbose": True,
-            "print_time": True,
+            "verbose": False,
+            "print_time": False,
         }  # TODO: Fill the dictionary with options for the QP solver
         self._set_controller(opt)
 
@@ -828,7 +828,7 @@ class CMPC:
                 if self.poly_x_aug == xa_1:
                     break
                 self.poly_x_aug = xa_1
-                print("Iteration:", k)
+                # print("Iteration:", k)
         else:
             v = 1
             self.poly_x_aug = x0_poly
@@ -851,7 +851,7 @@ class CMPC:
                 if self.poly_x_aug == xa_1:
                     break
                 self.poly_x_aug = xa_1
-                print("Iteration:", k)
+                # print("Iteration:", k)
 
 
     def _set_controller(self, options=None):
@@ -878,10 +878,10 @@ class CMPC:
             decision_vars = ca.vertcat(decision_vars, ca.reshape(self.nu, -1, 1))
         new_g = ca.MX()
         for val in self.g:
-            print(val)
+            # print(val)
             if isinstance(val, list):
                 for vval in val:
-                    print(vval)
+                    # print(vval)
                     new_g = ca.vertcat(new_g, vval)
             else:
                 new_g = ca.vertcat(new_g, val)

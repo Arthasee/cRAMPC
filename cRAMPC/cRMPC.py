@@ -671,10 +671,10 @@ class CRMPC(CMPC):
         #     decision_vars = ca.vertcat(decision_vars, ca.reshape(self.nu, -1, 1))
         new_g = ca.MX()
         for val in self.g:
-            print(val)
+            # print(val)
             if isinstance(val, list):
                 for vval in val:
-                    print(vval)
+                    # print(vval)
                     new_g = ca.vertcat(new_g, vval)
             else:
                 new_g = ca.vertcat(new_g, val.reshape((-1, 1)))

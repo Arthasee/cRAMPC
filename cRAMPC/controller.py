@@ -28,6 +28,7 @@ from cRAMPC.cMPC import CMPC
 from cRAMPC.cRMPC import CRMPC
 
 # TODO - See how to implement with EPF trajectory tracking controller.
+# TODO - Add parameter implementation for A,B,C matrices when they've got multiple parameters
 
 
 class Controller(Node):
@@ -57,6 +58,8 @@ class Controller(Node):
         self.declare_parameter('size_y', 1)
 
         self.cmd_pub = self.create_publisher(TwistStamped, '/cmd_vel', 10)
+
+        #-------------SHOULD BE DELETED AFTER TESTING PHASE-------------#
 
         self.A = np.reshape(self.get_parameter('A_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_x').get_parameter_value().integer_value,
@@ -133,7 +136,9 @@ class Controller(Node):
                 'lam': 0.999,
             }
         curr_x = np.array([2.5, 10.0])
-            
+
+        #-------------SHOULD BE DELETED AFTER TESTING PHASE-------------#
+
 
         if self.flavor == 'MPC':
             self.controller = CMPC({'A': self.A, 'B': self.B, 'C': self.C},
@@ -156,7 +161,7 @@ class Controller(Node):
                                                     self.ref_callback, 10)
         self.ref = None
 
-        self.sub_odom = self.create_subscription(Odometry, '/ekf_TOCHECK', self.odom_callback, 10)
+        self.sub_odom = self.create_subscription(Odometry, '/ekf_odom', self.odom_callback, 10)
         self.curr_x = None
         self.get_logger().info('initialization done !')
 
