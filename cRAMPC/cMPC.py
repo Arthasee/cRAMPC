@@ -1,3 +1,4 @@
+
 """cMPC: A CasADi-based linear-quadratic Model Predictive Controller (MPC) implementation."""
 
 import numpy as np
@@ -216,7 +217,7 @@ class CMPC:
         self.poly_x_aug = None
         self.P = None
         self.Nn = None
-        self.lam = None
+        self.lam = self.options.lam
 
     def add_hard_constraints(self, *hConstraints):
         """Add hard constraints to the MPC problem."""
@@ -716,7 +717,7 @@ class CMPC:
         rho = np.zeros(v)  # spectral radius for each vertex
 
         while not satisfied:
-            lmip.solve()
+            lmip.solve(verbose=False)
             self.P = np.linalg.inv(x_mat.value)
             self.K = y_mat.value @ self.P
             for j in range(v):

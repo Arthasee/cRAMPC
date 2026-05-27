@@ -1,3 +1,4 @@
+
 class StateSystem:
     """A simple wrapper for system matrices and related operations."""
 

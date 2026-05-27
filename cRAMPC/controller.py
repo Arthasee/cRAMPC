@@ -3,6 +3,7 @@
 import numpy as np
 
 from pycvxset import Polytope
+import time
 
 import os
 import mosek
@@ -36,7 +37,7 @@ class Controller(Node):
         self.get_logger().info('Controller node has been started.')
         self.get_logger().info('Everyone loves Ice Cream !')
 
-        self.declare_parameter('flavor', 'MPC')
+        self.declare_parameter('flavor', 'RMPC')
         self.flavor = self.get_parameter('flavor').get_parameter_value().string_value
 
         self.declare_parameter('horizon', 10)
@@ -48,14 +49,14 @@ class Controller(Node):
         self.declare_parameter('A_flat', [1., 1., 0., 1.])
         self.declare_parameter('B_flat', [0., 1.])
         self.declare_parameter('C_flat', [1., 0.])
-        self.declare_parameter('Q_flat', [1., 0., 0., 1.])
+        self.declare_parameter('Q_flat', [1., 0., 1., 0.])
         self.declare_parameter('R_flat', [.1])
 
         self.declare_parameter('size_x', 2)
         self.declare_parameter('size_u', 1)
         self.declare_parameter('size_y', 1)
 
-        self.cmd_pub = self.create_publisher(TwistStamped, 'cmd_vel', 10)
+        self.cmd_pub = self.create_publisher(TwistStamped, '/cmd_vel', 10)
 
         self.A = np.reshape(self.get_parameter('A_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_x').get_parameter_value().integer_value,
@@ -126,9 +127,13 @@ class Controller(Node):
                 'svd':False,
                 'xBound':(np.array([-1e4, -10]), np.array([1e4, 10])),
                 'uBound':(np.array([-5]),np.array([5])),
-                'name':'test_mpc'
+                'name':'test_mpc',
+                'W': Polytope(A=np.block([[np.eye(2)], [-np.eye(2)]]), b=0.05*np.ones((4,1))),
+                'theta': Theta,
+                'lam': 0.999,
             }
         curr_x = np.array([2.5, 10.0])
+            
 
         if self.flavor == 'MPC':
             self.controller = CMPC({'A': self.A, 'B': self.B, 'C': self.C},
@@ -136,26 +141,26 @@ class Controller(Node):
         elif self.flavor == 'RMPC':
             self.controller = CRMPC({'A': A, 'B': B, 'C': C},
                                     Q, R, self.horizon, opt)
-            self.controller.lam= 0.742
-            
-            self.controller.initialize_uncertainties(Theta)
         # elif self.flavor == 'RAMPC':
         #     self.controller = CRAMPC({'A': self.A, 'B': self.B, 'C': self.C},
         #                              self.Q, self.R, self.horizon, self.options)
 
-        self.controller.initialize("volume", self.constraints)
+        self.controller.initialize(self.mode, self.constraints)
 
         ref_type = self.options['ref'] if self.options.get('ref') is not None else ""
         if ref_type.lower() in ['trajectory', 'traj']:
-            self.sub_ref = self.create_subscription(VecArray, 'reference',
+            self.sub_ref = self.create_subscription(VecArray, '/reference',
                                                     self.ref_callback, 10)
         else:
-            self.sub_ref = self.create_subscription(Vec, 'reference',
+            self.sub_ref = self.create_subscription(Vec, '/reference',
                                                     self.ref_callback, 10)
         self.ref = None
 
-        self.sub_odom = self.create_subscription(Odometry, 'ekf_TOCHECK', self.odom_callback, 10)
+        self.sub_odom = self.create_subscription(Odometry, '/ekf_TOCHECK', self.odom_callback, 10)
         self.curr_x = None
+        self.get_logger().info('initialization done !')
+
+        self.timer = self.create_timer(1/30, self.timer_callback)
 
     def ref_callback(self, msg):
         """Receive reference trajectory or setpoint."""
@@ -170,7 +175,16 @@ class Controller(Node):
 
     def odom_callback(self, msg):
         """Receive current state from odometry."""
-        self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, msg.twist.twist.angular.z])
+        self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
+
+    def timer_callback(self):
+        if self.curr_x is not None:
+            self.controller.solve(self.curr_x, self.ref)
+            msg = TwistStamped()
+            msg.twist.linear.x = self.controller.u_star
+            msg.twist.angular.z = self.controller.u_star
+            msg.header.stamp = self.get_clock().now().to_msg()
+            
 
 
 def main(args=None):
