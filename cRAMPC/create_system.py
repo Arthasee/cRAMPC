@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from cRAMPC.statesystem import StateSystem

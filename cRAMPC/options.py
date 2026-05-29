@@ -24,10 +24,14 @@ class Options:
         self.uBound = options.get("uBound") if options.get("uBound") is not None else None
         self.yBound = options.get("yBound") if options.get("yBound") is not None else None
         self.W = options.get("W") if options.get("W") is not None else None
+        self.E = options.get("E") if options.get("E") is not None else None
         self.lam = options.get("lam") if options.get("lam") is not None else 1.0
         self.theta = options.get("theta") if options.get("theta") is not None else None
         self.theta_c = options.get("theta_c") if options.get("theta_c") is not None else None
-        
+        self.lpv_flag = options.get("lpv_flag") if options.get("lpv_flag") is not None else False # Default is false
+        self.par_filter = options.get("par_filter") if options.get("par_filter") is not None else 'lms' # Default is lms, other options could be 'rls', 'kalman', 'chebyshev'
+
+
     def get_bound(self, n, m, p):
         """Generate bound of state, input and output
 
