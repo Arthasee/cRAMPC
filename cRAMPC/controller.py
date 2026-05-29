@@ -19,7 +19,7 @@ if constants.DEFAULT_LP_SOLVER_STR == 'MOSEK':
 import rclpy
 from rclpy.node import Node
 
-from inter_crampc.msg import Vec, VecArray
+from inter_crampc.msg import Vec, VecArray, PolytopeMsg
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 
@@ -27,7 +27,7 @@ from nav_msgs.msg import Odometry
 from cRAMPC.cMPC import CMPC
 from cRAMPC.cRMPC import CRMPC
 
-# TODO - See how to implement with EPF trajectory tracking controller.
+
 # TODO - Add parameter implementation for A,B,C matrices when they've got multiple parameters
 
 
@@ -46,6 +46,9 @@ class Controller(Node):
 
         self.declare_parameter('mode', 'LQR')
         self.mode = self.get_parameter('mode').get_parameter_value().string_value
+
+        self.declare_parameter('recorder', True)
+        self.recorder = self.get_parameter('recorder').get_parameter_value().bool_value
         
         self.declare_parameter('A_flat', [1., 1., 0., 1.])
         self.declare_parameter('B_flat', [0., 1.])
@@ -126,7 +129,7 @@ class Controller(Node):
         opt = {
                 'K': K,
                 'solver':'osqp',
-                'verbose':True,
+                'verbose':False,
                 'svd':False,
                 'xBound':(np.array([-1e4, -10]), np.array([1e4, 10])),
                 'uBound':(np.array([-5]),np.array([5])),
@@ -150,7 +153,21 @@ class Controller(Node):
         #     self.controller = CRAMPC({'A': self.A, 'B': self.B, 'C': self.C},
         #                              self.Q, self.R, self.horizon, self.options)
 
+        if self.recorder:
+            self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
+
         self.controller.initialize(self.mode, self.constraints)
+        if self.recorder:
+            self.tube_set = PolytopeMsg()
+            tube_a = VecArray(array=[])
+            tube_b = Vec()
+            for a in self.controller.V.A.tolist():
+                tube_a.array.append(Vec(data=a))
+            tube_b.data = self.controller.V.b.tolist()
+            self.tube_set.a.array = tube_a.array
+            self.tube_set.b.array.append(tube_b)
+            self.get_logger().info(f'{self.tube_set}')
+            self.pub_tube.publish(self.tube_set)
 
         ref_type = self.options['ref'] if self.options.get('ref') is not None else ""
         if ref_type.lower() in ['trajectory', 'traj']:
@@ -183,6 +200,17 @@ class Controller(Node):
         self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
 
     def timer_callback(self):
+        if self.recorder:
+            # TODO - clean this and add alpha variation
+            self.tube_set = PolytopeMsg()
+            tube_a = VecArray(array=[])
+            tube_b = Vec()
+            for a in self.controller.V.A.tolist():
+                tube_a.array.append(Vec(data=a))
+            tube_b.data = self.controller.V.b.tolist()
+            self.tube_set.a.array = tube_a.array
+            self.tube_set.b.array.append(tube_b)
+            self.pub_tube.publish(self.tube_set)
         if self.curr_x is not None:
             self.controller.solve(self.curr_x, self.ref)
             msg = TwistStamped()

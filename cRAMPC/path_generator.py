@@ -8,7 +8,7 @@ class PathGenerator(Node):
     """The Path Generator Class for ROS2. """
     def __init__(self):
         super().__init__('path_generator')
-        self.declare_parameter('traj_file', '/home/turtle/ros2_ws/src/cRAMPC/config/segment_0.csv')
+        self.declare_parameter('traj_file', '/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv')
         self.declare_parameter('ref_type', 'traj')
         self.declare_parameter('ref_point', [5.0, 5.0])
 
