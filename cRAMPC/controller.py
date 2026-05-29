@@ -189,7 +189,6 @@ class Controller(Node):
             msg.twist.linear.x = self.controller.u_star
             msg.twist.angular.z = self.controller.u_star
             msg.header.stamp = self.get_clock().now().to_msg()
-            
 
 
 def main(args=None):

@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'controller = cRAMPC.controller:main',
+            'path_generator = cRAMPC.path_generator:main',
         ],
     },
 )
