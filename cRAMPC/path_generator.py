@@ -10,13 +10,16 @@ class PathGenerator(Node):
         super().__init__('path_generator')
         self.declare_parameter('traj_file', '/home/turtle/ros2_ws/src/cRAMPC/config/segment_0.csv')
         self.declare_parameter('ref_type', 'traj')
+        self.declare_parameter('ref_point', [5.0, 5.0])
 
         self.get_logger().info('Path Generator node has been started.')
         
         self.debug =True
+        self.ref_point = None
 
         if self.get_parameter('ref_type').get_parameter_value().string_value == 'ref':
             self.path_pub = self.create_publisher(Vec, '/trajectory', 10)
+            self.ref_point = self.get_parameter('ref_point').get_parameter_value().double_array_value
         else:
             self.path_pub = self.create_publisher(VecArray, '/trajectory', 10)
 
@@ -65,7 +68,7 @@ class PathGenerator(Node):
         if self.file_path == 'None':
             self.get_logger().info('No trajectory file provided. Sending to default goal.')
             self.path = Vec()
-            self.path.data = [5.0, 5.0]  # Default goal
+            self.path.data = self.ref_point
             self.publish_path()
 
         else:
