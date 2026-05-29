@@ -54,12 +54,33 @@ class Controller(Node):
         self.declare_parameter('recorder', True)
         self.recorder = self.get_parameter('recorder').get_parameter_value().bool_value
 
-        self.declare_parameter('A_flat', [-7.00000000e-01,  0.00000000e+00, -5.00000000e-02,  5.00000000e-02,
-                                          -1.00000000e-01,  2.50000000e-01, -1.38777878e-17, -2.50000000e-01,
-                                          -1.00000000e-01, -2.50000000e-01,  2.50000000e-01, -1.38777878e-17,
-                                          -6.00000000e-01,  0.00000000e+00, -5.00000000e-02,  5.00000000e-02]) #[1., 1., 0., 1.])
-        self.declare_parameter('B_flat', [ 0.2, -0.1,  0. ,  0.1,  1. ,  0. ,  0.4, -0.4])  #[0., 1.])
-        self.declare_parameter('C_flat', [1., 0., 0., 0., 0., 0., 0., 0.])  #[1., 0.])
+        self.declare_parameter('name', 'test_mpc')
+        self.name = self.get_parameter('name').get_parameter_value().string_value
+
+        self.declare_parameter('verbose', True)
+        self.verbose = self.get_parameter('verbose').get_parameter_value().bool_value
+
+        self.declare_parameter('solver', 'osqp')
+        self.solver = self.get_parameter('solver').get_parameter_value().string_value
+
+        self.declare_parameter('lbx', [-1e4, -10])
+        self.lbx = self.get_parameter('lbx').get_parameter_value().double_array_value
+        self.declare_parameter('ubx', [1e4, 10])
+        self.ubx = self.get_parameter('ubx').get_parameter_value().double_array_value
+        self.declare_parameter('lbu', [-5])
+        self.lbu = self.get_parameter('lbu').get_parameter_value().double_array_value
+        self.declare_parameter('ubu', [5])
+        self.ubu = self.get_parameter('ubu').get_parameter_value().double_array_value
+
+        self.declare_parameter('svd', False)
+        self.svd = self.get_parameter('svd').get_parameter_value().bool_value
+
+        self.declare_parameter('A_flat', [-7.0e-01,  0.0e+00, -5.0e-02,  5.0e-02,
+                                          -1.0e-01,  2.5e-01, -1.38777878e-17, -2.5e-01,
+                                          -1.0e-01, -2.5e-01,  2.5e-01, -1.38777878e-17,
+                                          -6.0e-01,  0.0e+00, -5.0e-02,  5.0e-02])  # [1., 1., 0., 1.])
+        self.declare_parameter('B_flat', [0.2, -0.1,  0.,  0.1,  1.,  0.,  0.4, -0.4])  # [0., 1.])
+        self.declare_parameter('C_flat', [1., 0., 0., 0., 0., 0., 0., 0.])  # [1., 0.])
         self.declare_parameter('Q_flat', [1., 0., 1., 0.])
         self.declare_parameter('R_flat', [1.0])
 
@@ -89,12 +110,12 @@ class Controller(Node):
         self.constraints = None
 
         self.options = {
-            'solver': 'osqp',
-            'verbose': True,
+            'solver': self.solver,
+            'verbose': self.verbose,
             'svd': False,
-            'xBound': (np.array([-8, -8]), np.array([8, 8])),
-            'uBound': (np.array([-1]), np.array([1])),
-            'name': 'test_mpc',
+            'xBound': (np.array(self.lbx), np.array(self.ubx)),
+            'uBound': (np.array(self.lbu), np.array(self.ubu)),
+            'name': self.name,
             'ref': 'traj'
         }
 
@@ -142,7 +163,6 @@ class Controller(Node):
                 'theta': Theta,
                 'lam': 0.999,
             }
-        curr_x = np.array([2.5, 10.0])
 
         # -------------SHOULD BE DELETED AFTER TESTING PHASE------------- #
 
