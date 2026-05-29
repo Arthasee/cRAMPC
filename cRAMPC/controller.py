@@ -1,13 +1,23 @@
 """The Node to implement cRAMPC library with ROS2."""
 
+import os
+
+# from cRAMPC import CRAMPC
+from cRAMPC.cMPC import CMPC
+from cRAMPC.cRMPC import CRMPC
+
+from geometry_msgs.msg import TwistStamped
+
+from inter_crampc.msg import PolytopeMsg, Vec, VecArray
+
+import mosek
+
+
+from nav_msgs.msg import Odometry
+
 import numpy as np
 
 from pycvxset import Polytope
-import time
-
-import os
-import mosek
-
 from pycvxset import common as cpy
 from pycvxset.common import constants
 
@@ -19,21 +29,15 @@ if constants.DEFAULT_LP_SOLVER_STR == 'MOSEK':
 import rclpy
 from rclpy.node import Node
 
-from inter_crampc.msg import Vec, VecArray, PolytopeMsg
-from geometry_msgs.msg import TwistStamped
-from nav_msgs.msg import Odometry
-
-# from cRAMPC import CRAMPC
-from cRAMPC.cMPC import CMPC
-from cRAMPC.cRMPC import CRMPC
-
 
 # TODO - Add parameter implementation for A,B,C matrices when they've got multiple parameters
 
 
 class Controller(Node):
-    """The Controller Class for ROS2. """
+    """The Controller Class for ROS2."""
+
     def __init__(self):
+        """Initialize the ROS2 Node."""
         super().__init__('controller')
         self.get_logger().info('Controller node has been started.')
         self.get_logger().info('Everyone loves Ice Cream !')
@@ -49,12 +53,15 @@ class Controller(Node):
 
         self.declare_parameter('recorder', True)
         self.recorder = self.get_parameter('recorder').get_parameter_value().bool_value
-        
-        self.declare_parameter('A_flat', [1., 1., 0., 1.])
-        self.declare_parameter('B_flat', [0., 1.])
-        self.declare_parameter('C_flat', [1., 0.])
+
+        self.declare_parameter('A_flat', [-7.00000000e-01,  0.00000000e+00, -5.00000000e-02,  5.00000000e-02,
+                                          -1.00000000e-01,  2.50000000e-01, -1.38777878e-17, -2.50000000e-01,
+                                          -1.00000000e-01, -2.50000000e-01,  2.50000000e-01, -1.38777878e-17,
+                                          -6.00000000e-01,  0.00000000e+00, -5.00000000e-02,  5.00000000e-02]) #[1., 1., 0., 1.])
+        self.declare_parameter('B_flat', [ 0.2, -0.1,  0. ,  0.1,  1. ,  0. ,  0.4, -0.4])  #[0., 1.])
+        self.declare_parameter('C_flat', [1., 0., 0., 0., 0., 0., 0., 0.])  #[1., 0.])
         self.declare_parameter('Q_flat', [1., 0., 1., 0.])
-        self.declare_parameter('R_flat', [.1])
+        self.declare_parameter('R_flat', [1.0])
 
         self.declare_parameter('size_x', 2)
         self.declare_parameter('size_u', 1)
@@ -62,17 +69,15 @@ class Controller(Node):
 
         self.cmd_pub = self.create_publisher(TwistStamped, '/cmd_vel', 10)
 
-        #-------------SHOULD BE DELETED AFTER TESTING PHASE-------------#
-
         self.A = np.reshape(self.get_parameter('A_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_x').get_parameter_value().integer_value,
-                             self.get_parameter('size_x').get_parameter_value().integer_value))
+                             self.get_parameter('size_x').get_parameter_value().integer_value, -1))
         self.B = np.reshape(self.get_parameter('B_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_x').get_parameter_value().integer_value,
-                             self.get_parameter('size_u').get_parameter_value().integer_value))
+                             self.get_parameter('size_u').get_parameter_value().integer_value, -1))
         self.C = np.reshape(self.get_parameter('C_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_y').get_parameter_value().integer_value,
-                             self.get_parameter('size_x').get_parameter_value().integer_value))
+                             self.get_parameter('size_x').get_parameter_value().integer_value, -1))
 
         self.Q = np.reshape(self.get_parameter('Q_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_x').get_parameter_value().integer_value,
@@ -80,16 +85,16 @@ class Controller(Node):
         self.R = np.reshape(self.get_parameter('R_flat').get_parameter_value().double_array_value,
                             (self.get_parameter('size_u').get_parameter_value().integer_value,
                              self.get_parameter('size_u').get_parameter_value().integer_value))
-        
+
         self.constraints = None
 
         self.options = {
-            'solver':'osqp',
-            'verbose':True,
-            'svd':False,
-            'xBound':(np.array([-8, -8]), np.array([8, 8])),
-            'uBound':(np.array([-1]),np.array([1])),
-            'name':'test_mpc',
+            'solver': 'osqp',
+            'verbose': True,
+            'svd': False,
+            'xBound': (np.array([-8, -8]), np.array([8, 8])),
+            'uBound': (np.array([-1]), np.array([1])),
+            'name': 'test_mpc',
             'ref': 'traj'
         }
 
@@ -113,48 +118,47 @@ class Controller(Node):
         dB2 = B2 - B0
         dB3 = B3 - B0
 
-        theta_v = np.eye(3)#U[:, :2].T @ blocked_delta
+        theta_v = np.eye(3)
         Theta = Polytope(V=theta_v.T)
 
         A = np.stack([A0, dA1, dA2, dA3], axis=2)
         B = np.stack([B0, dB1, dB2, dB3], axis=2)
 
-
-        C = np.array([[1, 0]]) # This is enough
-        C = np.stack([C, np.zeros((1, 2)), np.zeros((1, 2)), np.zeros((1, 2))], axis=2) # this is correct and can be used to test if c_mask works properly
+        C = np.array([[1, 0]])
+        C = np.stack([C, np.zeros((1, 2)), np.zeros((1, 2)), np.zeros((1, 2))], axis=2)
 
         Q, R = np.eye(2), np.array([[1]])
-        K =np.array([[0.19, 0.34]])
+        K = np.array([[0.19, 0.34]])
 
         opt = {
                 'K': K,
-                'solver':'osqp',
-                'verbose':False,
-                'svd':False,
-                'xBound':(np.array([-1e4, -10]), np.array([1e4, 10])),
-                'uBound':(np.array([-5]),np.array([5])),
-                'name':'test_mpc',
-                'W': Polytope(A=np.block([[np.eye(2)], [-np.eye(2)]]), b=0.05*np.ones((4,1))),
+                'solver': 'osqp',
+                'verbose': False,
+                'svd': False,
+                'xBound': (np.array([-1e4, -10]), np.array([1e4, 10])),
+                'uBound': (np.array([-5]), np.array([5])),
+                'name': 'test_mpc',
+                'W': Polytope(A=np.block([[np.eye(2)], [-np.eye(2)]]), b=0.05*np.ones((4, 1))),
                 'theta': Theta,
                 'lam': 0.999,
             }
         curr_x = np.array([2.5, 10.0])
 
-        #-------------SHOULD BE DELETED AFTER TESTING PHASE-------------#
-
+        # -------------SHOULD BE DELETED AFTER TESTING PHASE------------- #
 
         if self.flavor == 'MPC':
             self.controller = CMPC({'A': self.A, 'B': self.B, 'C': self.C},
                                    self.Q, self.R, self.horizon, self.options)
         elif self.flavor == 'RMPC':
-            self.controller = CRMPC({'A': A, 'B': B, 'C': C},
-                                    Q, R, self.horizon, opt)
+            self.controller = CRMPC({'A': self.A, 'B': self.B, 'C': self.C},
+                                    self.Q, self.R, self.horizon, opt)
         # elif self.flavor == 'RAMPC':
         #     self.controller = CRAMPC({'A': self.A, 'B': self.B, 'C': self.C},
         #                              self.Q, self.R, self.horizon, self.options)
 
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
+            self.last_idx = (self.controller.N + 1) * self.controller.n
 
         self.controller.initialize(self.mode, self.constraints)
         if self.recorder:
@@ -200,26 +204,35 @@ class Controller(Node):
         self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
 
     def timer_callback(self):
-        if self.recorder:
-            # TODO - clean this and add alpha variation
-            self.tube_set = PolytopeMsg()
-            tube_a = VecArray(array=[])
-            tube_b = Vec()
-            for a in self.controller.V.A.tolist():
-                tube_a.array.append(Vec(data=a))
-            tube_b.data = self.controller.V.b.tolist()
-            self.tube_set.a.array = tube_a.array
-            self.tube_set.b.array.append(tube_b)
-            self.pub_tube.publish(self.tube_set)
+        """Solve the MPC problem and send the command."""
         if self.curr_x is not None:
             self.controller.solve(self.curr_x, self.ref)
             msg = TwistStamped()
             msg.twist.linear.x = self.controller.u_star
             msg.twist.angular.z = self.controller.u_star
             msg.header.stamp = self.get_clock().now().to_msg()
+            if self.recorder:
+                # TODO - clean this and add alpha variation
+                self.tube_set = PolytopeMsg()
+                tube_a = VecArray(array=[])
+                tube_b = Vec()
+                for a in self.controller.V.A.tolist():
+                    tube_a.array.append(Vec(data=a))
+                tube_b.data = self.controller.V.b.tolist()
+                self.tube_set.a.array = tube_a.array
+                self.tube_set.b.array.append(tube_b)
+                alpha = self.controller.sol['x'][self.last_idx + self.controller.na: self.last_idx + self.controller.na * (self.controller.N + 1)]
+                alpha = alpha.toarray().tolist()
+                print(alpha)
+                for al in alpha:
+                    self.tube_set.b.array.append(Vec(data=al))
+                self.last_idx = self.last_idx + self.controller.na * (self.controller.N + 1)
+                self.pub_tube.publish(self.tube_set)
+                self.get_logger().info(f'done {self.last_idx}')
 
 
 def main(args=None):
+    """Launch the ROS2 Node."""
     rclpy.init(args=args)
     controller = Controller()
     rclpy.spin(controller)
