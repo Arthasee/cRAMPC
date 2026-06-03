@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from pycvxset import Polytope
