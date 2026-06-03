@@ -13,7 +13,7 @@ class PathGenerator(Node):
         self.declare_parameter('ref_point', [5.0, 5.0])
 
         self.get_logger().info('Path Generator node has been started.')
-        
+
         self.debug =True
         self.ref_point = None
 
