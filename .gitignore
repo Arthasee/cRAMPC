@@ -1,2 +1,3 @@
 .vscode
 cRAMPC/__pycache__
+*.pyc
