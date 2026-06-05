@@ -1,5 +1,5 @@
 
-import glob
+from glob import glob
 
 from setuptools import find_packages, setup
 
@@ -31,6 +31,7 @@ setup(
         'console_scripts': [
             'controller = cRAMPC.controller:main',
             'path_generator = cRAMPC.path_generator:main',
+            'prop = cRAMPC.test_propagation:main',
         ],
     },
 )
