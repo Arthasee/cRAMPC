@@ -8,7 +8,7 @@ from launch_ros.actions import Node as Node
 def generate_launch_description():
     """Generate the launch description for c_rampc."""
     robot_name_arg = actions.DeclareLaunchArgument(
-        "robot_name", default_value="IDonatello", description="Namespace for the robot"
+        "robot_name", default_value="IDonat", description="Namespace for the robot"
     )
     flavor_arg = actions.DeclareLaunchArgument(
         "flavor",
@@ -21,7 +21,7 @@ def generate_launch_description():
     mode_arg = actions.DeclareLaunchArgument(
         "mode",
         default_value="LQR",
-        description="Mode for the controller - LQR, Volume or Performance",
+        description="Mode for the controller - LQR, volume or Performance",
     )
     recorder_arg = actions.DeclareLaunchArgument(
         "recorder",
@@ -64,6 +64,63 @@ def generate_launch_description():
     )
     size_y_arg = actions.DeclareLaunchArgument(
         "size_y", default_value="1", description="Size of the output vector"
+    )
+    ts_arg = actions.DeclareLaunchArgument(
+        "Ts", default_value="0.", description="Sampling time for the controller, if 0, the system is considered continuous"
+    )
+    relax_arg = actions.DeclareLaunchArgument(
+        "relax", default_value="", description="Whether to relax the constraints or not"
+    )
+    name_arg = actions.DeclareLaunchArgument(
+        "name", default_value="", description="Name of the controller, if empty, a random name will be generated"
+    )
+    verbose_arg = actions.DeclareLaunchArgument(
+        "verbose", default_value='True', description="Whether to print verbose output or not"
+    )
+    solver_arg = actions.DeclareLaunchArgument(
+        "solver", default_value="osqp", description="Solver to use for the controller, options are 'qpoases', 'osqp'"
+    )
+    lbx_arg = actions.DeclareLaunchArgument(
+        "lbx", default_value='[0.]', description="Lower bound on the state vector."
+    )
+    ubx_arg = actions.DeclareLaunchArgument(
+        "ubx", default_value='[0.]', description="Upper bound on the state vector."
+    )
+    lub_arg = actions.DeclareLaunchArgument(
+        "lub", default_value='[0.]', description="Lower bound on the control vector."
+    )
+    uub_arg = actions.DeclareLaunchArgument(
+        "uub", default_value='[0.]', description="Upper bound on the control vector."
+    )
+    lyb_arg = actions.DeclareLaunchArgument(
+        "lyb", default_value='[0.]', description="Lower bound on the output vector."
+    )
+    uyb_arg = actions.DeclareLaunchArgument(
+        "uyb", default_value='[0.]', description="Upper bound on the output vector."
+    )
+    svd_arg = actions.DeclareLaunchArgument(
+        "svd", default_value='False', description="Whether to use SVD for the controller or not"
+    )
+    lam_arg = actions.DeclareLaunchArgument(
+        "lam", default_value='0.99', description="Lambda parameter for the controller."
+    )
+    lpv_flag_arg = actions.DeclareLaunchArgument(
+        "lpv_flag", default_value='False', description="Whether the system is LPV or not"
+    )
+    par_filter_arg = actions.DeclareLaunchArgument(
+        "par_filter", default_value='kf', description="Type of parameter filter to use, options are 'lms', 'rls', 'kalman', 'chebyshev'"
+    )
+    nc_arg = actions.DeclareLaunchArgument(
+        "Nc", default_value='0', description="Control horizon for the controller, if 0, it is equal to the horizon"
+    )
+    sigma_arg = actions.DeclareLaunchArgument(
+        "sigma", default_value='0.95', description="Sigma parameter for the controller, used for RMPC and RAMPC"
+    )
+    customJ_arg = actions.DeclareLaunchArgument(
+        "customJ", default_value="", description="Whether to use a custom cost function or not"
+    )
+    K_flat_arg = actions.DeclareLaunchArgument(
+        "K_flat", default_value='[0.0, 0.0]', description="Flattened K matrix for the controller"
     )
 
     robot_name = substitutions.LaunchConfiguration("robot_name")
@@ -117,14 +174,14 @@ def generate_launch_description():
                 ],
                 on_exit=launch.actions.Shutdown(),
             ),
-            Node(
-                namespace=robot_name,
-                package="cRAMPC",
-                executable="prop",
-                name='prop',
-                output='screen',
-                on_exit=launch.actions.Shutdown(),
-            ),
+            # Node(
+            #     namespace=robot_name,
+            #     package="cRAMPC",
+            #     executable="prop",
+            #     name='prop',
+            #     output='screen',
+            #     on_exit=launch.actions.Shutdown(),
+            # ),
             Node(
                 namespace=robot_name,
                 package="cRAMPC",
@@ -133,11 +190,11 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     {
-                        "traj_file": "None"  # "/home/turtle/ros2_ws/src/cRAMPC/config/segment_0.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
+                        "traj_file": "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
                     },
-                    {"ref_type": "ref"},
+                    {"ref_type": "traj"},
                     {"ref_point": [0.0]},
-                    {"odom_type": "x"},
+                    {"odom_type": "velocity_orientation"},
                 ],
                 on_exit=actions.Shutdown(),
 

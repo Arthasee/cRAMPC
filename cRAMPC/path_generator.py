@@ -63,7 +63,7 @@ class PathGenerator(Node):
         elif self.odom_type == "velocity":
             self.current_position = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z]
         elif self.odom_type == "velocity_orientation":
-            self.current_position = [msg.pose.pose.orientation.z, msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z]
+            self.current_position = [msg.pose.pose.orientation.z, msg.twist.twist.linear.x]  # , msg.twist.twist.linear.y, msg.twist.twist.angular.z
         elif self.odom_type == "x":
             self.current_position = [msg.pose.pose.position.x]
         if self.done:
@@ -129,8 +129,24 @@ class PathGenerator(Node):
                 # Skip the header
                 next(f)
                 for line in f:
-                    x, y, _, _, _, _ = map(float, line.strip().split(","))
-                    self.path.array.append(Vec(data=[x, y]))
+                    if self.odom_type == "full":
+                        x, y, theta, vx, vy, omega = map(float, line.strip().split(","))
+                        self.path.array.append(Vec(data=[x, y, theta, vx, vy, omega]))
+                    elif self.odom_type == "position":
+                        x, y, _, _, _, _ = map(float, line.strip().split(","))
+                        self.path.array.append(Vec(data=[x, y]))
+                    elif self.odom_type == "position_orientation":
+                        x, y, theta, _, _, _ = map(float, line.strip().split(","))
+                        self.path.array.append(Vec(data=[x, y, theta]))
+                    elif self.odom_type == "velocity":
+                        _, _, _, vx, vy, omega = map(float, line.strip().split(","))
+                        self.path.array.append(Vec(data=[vx, vy, omega]))
+                    elif self.odom_type == "velocity_orientation":
+                        _, _, theta, vx, vy, omega = map(float, line.strip().split(","))
+                        self.path.array.append(Vec(data=[theta, vx]))  # , vy, omega
+                    elif self.odom_type == "x":
+                        x, _, _, _, _, _ = map(float, line.strip().split(","))
+                        self.path.array.append(Vec(data=[x]))
             if self.debug:
                 self.get_logger().info(
                     f"Trajectory loaded from {self.file_path} with {len(self.path.array)} points."

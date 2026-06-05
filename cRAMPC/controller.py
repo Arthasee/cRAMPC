@@ -237,52 +237,94 @@ class Controller(Node):
             "name": self.name,
             "ref": self.ref_type,
         }
- 
-        A1 = np.array([[-0.7, 0.15], [-0.35, -0.6]])
-        A2 = np.array([[-0.75, -0.1], [0.15, -0.65]])
-        A3 = np.array([[-0.65, -0.35], [-0.1, -0.55]])
 
-        A0 = np.array([[0.5, 0.2], [-0.1, 0.6]])
+        # A1 = np.array([[-0.7, 0.15], [-0.35, -0.6]])
+        # A2 = np.array([[-0.75, -0.1], [0.15, -0.65]])
+        # A3 = np.array([[-0.65, -0.35], [-0.1, -0.55]])
 
-        dA1 = np.array([[0.042, 0.], [0.072, 0.03]])
-        dA2 = np.array([[0.0015, 0.019], [0.009, 0.035]])
-        dA3 = np.array([[0., 0.], [0., 0.]])
+        # A0 = np.array([[0.5, 0.2], [-0.1, 0.6]])
 
-        B1 = np.array([[0.1], [1]])
-        B2 = np.array([[0.2], [1.4]])
-        B3 = np.array([[0.3], [0.6]])
+        # dA1 = np.array([[0.042, 0.], [0.072, 0.03]])
+        # dA2 = np.array([[0.0015, 0.019], [0.009, 0.035]])
+        # dA3 = np.array([[0., 0.], [0., 0.]])
 
-        B0 = np.array([[0.], [0.5]])
+        # B1 = np.array([[0.1], [1]])
+        # B2 = np.array([[0.2], [1.4]])
+        # B3 = np.array([[0.3], [0.6]])
 
-        dB1 = np.array([[0.], [0.]])
-        dB2 = np.array([[0.], [0.]])
-        dB3 = np.array([[0.04], [0.054]])
+        # B0 = np.array([[0.], [0.5]])
 
-        theta_v = np.eye(3)
-        Theta = Polytope(A=np.block([[np.eye(3)], [-np.eye(3)]]), b=1*np.ones(6,))
+        # dB1 = np.array([[0.], [0.]])
+        # dB2 = np.array([[0.], [0.]])
+        # dB3 = np.array([[0.04], [0.054]])
 
-        A = np.stack([A0, dA1, dA2, dA3], axis=2)
-        B = np.stack([B0, dB1, dB2, dB3], axis=2)
+        A = np.array(
+            [
+                [
+                    [ 1.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [ 6.55847073e-03,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00]],
+                [
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [ 9.62477033e-01, -2.70418272e-01, -3.54535263e-01, -1.08121033e-01],
+                    [ 6.03978994e-02, -3.51946037e-01, -6.16284799e-01, 1.82183285e-01],
+                    [-2.98716243e-03, -3.30481599e-02, -3.49541770e-05, 1.52896134e-02]],
+                [
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [-4.21460547e-02,  1.48734527e-01,  2.49708275e-01, 1.46475140e-01],
+                    [ 9.32949059e-01,  2.33489450e-01,  3.84304411e-01, -1.35325598e-02],
+                    [-9.96893529e-03,  1.42242452e-02,  5.02034057e-03, -4.66406071e-02]],
+                [
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [-2.59938961e-02, -2.63172399e-02,  4.65109389e-03, 3.00565144e-01],
+                    [-1.59201270e-03, -2.02848177e-02, -2.60380154e-02, 3.90983528e-01],
+                    [ 8.70485640e-01, -5.48457771e-02,  3.24459921e-02, 6.67191728e-02]]])
+        B = np.array(
+            [
+                [
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
+                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00]],
+                [
+                    [ 8.40916986e-02, -6.74379191e-01,  4.14184808e-01, 6.96994653e-02],
+                    [ 1.37701713e-02,  2.87919480e-02, -9.12432271e-02, -2.99699931e-01]],
+                [
+                    [-1.02160995e-02,  5.14789438e-01, -3.00694970e-01, 2.04723249e-01],
+                    [ 2.58556998e-04, -4.44445006e-03,  4.10364069e-02, 3.52610402e-01]],
+                [
+                    [ 2.28217366e-02, -1.76918468e-02,  8.71910634e-02, 6.08327604e-01],
+                    [ 1.31207096e-01,  2.19817108e-03,  5.56598339e-02, -2.28968692e-01]]])
 
-        C = np.array([[1, 0]])
-        C = np.stack([C, np.zeros((1, 2)), np.zeros((1, 2)), np.zeros((1, 2))], axis=2)
+        # theta_v = np.eye(3)
+        # Theta = Polytope(A=np.block([[np.eye(3)], [-np.eye(3)]]), b=1*np.ones(6,))
+        max_p, min_p = ([np.float64(-0.23350282236215453), np.float64(1.3746074284691114), np.float64(0.3194948960182299)], [np.float64(-1.818337915423683),np.float64(-0.26129257236983),np.float64(-0.6174046886837932)])
+        Theta = Polytope(A=np.block([[np.eye(3)], [-np.eye(3)]]), b=np.block([np.array(max_p), -np.array(min_p)]))  # np.block([np.array(max_p), -np.array(min_p)]0
+        
 
-        Q, R = np.eye(2), np.array([[0.1]])
-        K = np.array([[0.017, -0.41]])
+        # A = np.stack([A0, dA1, dA2, dA3], axis=2)
+        # B = np.stack([B0, dB1, dB2, dB3], axis=2)
+
+        C = np.eye(2)
+        C = np.stack([C, np.zeros((2, 2)), np.zeros((2, 2)), np.zeros((2, 2))], axis=2)
+
+        Q, R = np.eye(4), np.diag([1/(0.46**2), 1/(1.90**2)])
+        # K = np.array([[0.017, -0.41]])
 
         opt = {
-            "K": K,
+            'K': None,
             "solver": self.solver,
             "verbose": False,
             "svd": self.svd,
-            "xBound": (np.array([-1e4, -0.3]), np.array([1e4, 1e4])),
-            "uBound": (np.array([-1e4]), np.array([1])),
+            "xBound": (np.array([-1e4,-0.46, -0.01, -1.90]), np.array([1e4, 0.46, 0.01, 1.90])),
+            "uBound": (np.array([-0.46, -1.90]), np.array([0.46, 1.90])),
             "name": self.name,
             "W": Polytope(
-                A=np.block([[np.eye(2)], [-np.eye(2)]]), b=0.05 * np.ones((4, 1))
+                A=np.block([[np.eye(4)], [-np.eye(4)]]), b=0.05 * np.ones((8, 1))
             ),
             "theta": Theta,
-            "lam": 0.9,
+            "lam": 1,
+            'par_filter': self.par_filter,
+            'ref': 'trajectory',
         }
 
         # -------------SHOULD BE DELETED AFTER TESTING PHASE------------- #
@@ -304,15 +346,15 @@ class Controller(Node):
                 opt,
             )
         elif self.flavor == 'RAMPC':
-            self.controller = CRAMPC({'A': self.A, 'B': self.B, 'C': self.C},
-                                     self.Q, self.R, self.horizon, self.options)
+            self.controller = CRAMPC({'A': A, 'B': B, 'C': C},
+                                     Q, R, self.horizon, opt)
 
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, "tube_set", 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
 
         self.controller.initialize(self.mode, self.constraints)
-        self.controller.P = np.array(([[1.467, 0.207], [0.207, 1.731]]))
+        # self.controller.P = np.array(([[1.467, 0.207], [0.207, 1.731]]))
         if self.recorder:
             self.tube_set = PolytopeMsg()
             tube_a = VecArray(array=[])
