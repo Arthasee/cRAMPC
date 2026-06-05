@@ -12,7 +12,7 @@ def generate_launch_description():
     )
     flavor_arg = actions.DeclareLaunchArgument(
         "flavor",
-        default_value="RMPC",
+        default_value="RAMPC",
         description="Flavor of the controller - MPC, RMPC or RAMPC",
     )
     horizon_arg = actions.DeclareLaunchArgument(

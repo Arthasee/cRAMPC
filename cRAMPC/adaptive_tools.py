@@ -68,7 +68,7 @@ class SetUpdater:
 
         # cp.Parameter per le misure: vengono sovrascritti ogni step in update()
         self.z = cp.Parameter((A_B.shape[2], 1))
-        self.x = cp.Parameter((C.shape[2], 1))
+        self.x = cp.Parameter((A_B.shape[1], 1))
         self.y = cp.Parameter((C.shape[1], 1))
 
         self.theta_problem  = None

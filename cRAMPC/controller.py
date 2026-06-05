@@ -304,10 +304,10 @@ class Controller(Node):
         # A = np.stack([A0, dA1, dA2, dA3], axis=2)
         # B = np.stack([B0, dB1, dB2, dB3], axis=2)
 
-        C = np.eye(2)
-        C = np.stack([C, np.zeros((2, 2)), np.zeros((2, 2)), np.zeros((2, 2))], axis=2)
+        C = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
+        C = np.stack([C, np.zeros((2, 4)), np.zeros((2, 4)), np.zeros((2, 4))], axis=2)
 
-        Q, R = np.eye(4), np.diag([1/(0.46**2), 1/(1.90**2)])
+        Q, R = np.eye(4), np.diag([1/(0.46**2), 1/(1.90**2)]) #np.diag([1/(0.46**2), 1/(1.90**2)])
         # K = np.array([[0.017, -0.41]])
 
         opt = {
