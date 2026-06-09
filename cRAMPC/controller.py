@@ -258,6 +258,8 @@ class Controller(Node):
         # dB2 = np.array([[0.], [0.]])
         # dB3 = np.array([[0.04], [0.054]])
 
+        self.last_theta = None
+
         A = np.array(
             [
                 [
@@ -398,7 +400,14 @@ class Controller(Node):
 
     def odom_callback(self, msg):
         """Receive current state from odometry."""
-        self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
+        # Calculate theta from quaternion
+        theta = np.arctan2(
+            2.0 * (msg.pose.pose.orientation.w * msg.pose.pose.orientation.z),
+            1.0 - 2.0 * (msg.pose.pose.orientation.z ** 2),
+        )
+        d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
+        self.last_theta = theta
+        self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, d_theta])
 
     def timer_callback(self):
         """Solve the MPC problem and send the command."""
