@@ -40,7 +40,7 @@ class PathGenerator(Node):
             self.path_pub = self.create_publisher(VecArray, "trajectory", 10)
 
         self.odom_sub = self.create_subscription(
-            Odometry, "odom", self.odom_callback, 10
+            Odometry, "odom_ekf", self.odom_callback, 10
         )
 
         self.path = None

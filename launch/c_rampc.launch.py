@@ -1,8 +1,9 @@
 """Create a launch description for c_rampc. Launch path_generator and c_rampc controller with namespace."""
 import launch
 from launch import LaunchDescription, actions, substitutions
-
+from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node as Node
+import os
 
 
 def generate_launch_description():
@@ -137,6 +138,7 @@ def generate_launch_description():
     size_u = substitutions.LaunchConfiguration("size_u")
     size_y = substitutions.LaunchConfiguration("size_y")
 
+    pkg_share = get_package_share_directory('cRAMPC')
     return LaunchDescription(
         [
             robot_name_arg,
@@ -154,26 +156,45 @@ def generate_launch_description():
             size_y_arg,
             Node(
                 namespace=robot_name,
-                package="cRAMPC",
-                executable="controller",
-                name="controller",
-                output="screen",
-                parameters=[
-                    {"flavor": flavor},
-                    {"horizon": horizon},
-                    {"mode": mode},
-                    {"recorder": recorder},
-                    {"A_flat": A_flat},
-                    {"B_flat": B_flat},
-                    {"C_flat": C_flat},
-                    {"Q_flat": Q_flat},
-                    {"R_flat": R_flat},
-                    {"size_x": size_x},
-                    {"size_u": size_u},
-                    {"size_y": 2},
-                ],
-                on_exit=launch.actions.Shutdown(),
+                package='bag_recorder_py',
+                executable='odom_sensor',
+                name='odom_sensor',
+                output='screen',
+                parameters=[os.path.join(pkg_share, 'config', 'odom_sensor_params.yaml')],
             ),
+            Node(
+                namespace=robot_name,
+                package='robot_localization',
+                executable='ekf_node',
+                name='ekf',
+                output='screen',
+                parameters=[os.path.join(pkg_share, 'config', 'filters_nolidar.yaml')],
+                remappings=[
+                    ('odometry/filtered', 'odom_ekf'),
+                ],
+            ),
+            # Node(
+            #     namespace=robot_name,
+            #     package="cRAMPC",
+            #     executable="controller",
+            #     name="controller",
+            #     output="screen",
+            #     parameters=[
+            #         {"flavor": flavor},
+            #         {"horizon": horizon},
+            #         {"mode": mode},
+            #         {"recorder": recorder},
+            #         {"A_flat": A_flat},
+            #         {"B_flat": B_flat},
+            #         {"C_flat": C_flat},
+            #         {"Q_flat": Q_flat},
+            #         {"R_flat": R_flat},
+            #         {"size_x": size_x},
+            #         {"size_u": size_u},
+            #         {"size_y": 2},
+            #     ],
+            #     on_exit=launch.actions.Shutdown(),
+            # ),
             # Node(
             #     namespace=robot_name,
             #     package="cRAMPC",
@@ -182,22 +203,22 @@ def generate_launch_description():
             #     output='screen',
             #     on_exit=launch.actions.Shutdown(),
             # ),
-            Node(
-                namespace=robot_name,
-                package="cRAMPC",
-                executable="path_generator",
-                name="path_generator",
-                output="screen",
-                parameters=[
-                    {
-                        "traj_file": "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
-                    },
-                    {"ref_type": "trajectory"},
-                    {"ref_point": [0.0]},
-                    {"odom_type": "velocity_orientation"},
-                ],
-                on_exit=actions.Shutdown(),
+            # Node(
+            #     namespace=robot_name,
+            #     package="cRAMPC",
+            #     executable="path_generator",
+            #     name="path_generator",
+            #     output="screen",
+            #     parameters=[
+            #         {
+            #             "traj_file": "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
+            #         },
+            #         {"ref_type": "trajectory"},
+            #         {"ref_point": [0.0]},
+            #         {"odom_type": "velocity_orientation"},
+            #     ],
+            #     on_exit=actions.Shutdown(),
 
-            ),
+            # ),
         ]
     )

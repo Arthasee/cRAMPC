@@ -1,0 +1,14 @@
+/**/odom_sensor:
+  ros__parameters:
+    absolute_ticks: true
+    wheel_base: 0.233
+    whheel_radius: 0.03575
+    ticks_per_revolution: 508.8
+    publish_rate: 31.25
+    publish_tf: false
+    frame_id: "odom"
+    child_frame_id: "base_link"
+    squal_min: 25.0
+    squal_max: 200.0
+    mouse_cov_min: 0.0001
+    mouse_cov_max: 1.0

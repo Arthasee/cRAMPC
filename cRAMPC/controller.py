@@ -331,7 +331,7 @@ class Controller(Node):
         self.ref = None
 
         self.sub_odom = self.create_subscription(
-            Odometry, "odom", self.odom_callback, 10
+            Odometry, "odom_ekf", self.odom_callback, 10
         )
         self.curr_x = None
         self.get_logger().info("initialization done !")
