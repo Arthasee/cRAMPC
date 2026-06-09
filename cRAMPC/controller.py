@@ -87,7 +87,7 @@ class Controller(Node):
         self.declare_parameter("svd", False)
         self.svd = self.get_parameter("svd").get_parameter_value().bool_value
 
-        self.declare_parameter("ref", "ref")
+        self.declare_parameter("ref", "trajectory")
         self.ref_type = self.get_parameter("ref").get_parameter_value().string_value
 
         self.declare_parameter("lam", 0.999)
@@ -238,94 +238,44 @@ class Controller(Node):
             "ref": self.ref_type,
         }
 
-        # A1 = np.array([[-0.7, 0.15], [-0.35, -0.6]])
-        # A2 = np.array([[-0.75, -0.1], [0.15, -0.65]])
-        # A3 = np.array([[-0.65, -0.35], [-0.1, -0.55]])
+        self.last_theta = 0.0
 
-        # A0 = np.array([[0.5, 0.2], [-0.1, 0.6]])
-
-        # dA1 = np.array([[0.042, 0.], [0.072, 0.03]])
-        # dA2 = np.array([[0.0015, 0.019], [0.009, 0.035]])
-        # dA3 = np.array([[0., 0.], [0., 0.]])
-
-        # B1 = np.array([[0.1], [1]])
-        # B2 = np.array([[0.2], [1.4]])
-        # B3 = np.array([[0.3], [0.6]])
-
-        # B0 = np.array([[0.], [0.5]])
-
-        # dB1 = np.array([[0.], [0.]])
-        # dB2 = np.array([[0.], [0.]])
-        # dB3 = np.array([[0.04], [0.054]])
-
-        self.last_theta = None
-
-        A = np.array(
-            [
-                [
-                    [ 1.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [ 6.55847073e-03,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00]],
-                [
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [ 9.62477033e-01, -2.70418272e-01, -3.54535263e-01, -1.08121033e-01],
-                    [ 6.03978994e-02, -3.51946037e-01, -6.16284799e-01, 1.82183285e-01],
-                    [-2.98716243e-03, -3.30481599e-02, -3.49541770e-05, 1.52896134e-02]],
-                [
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [-4.21460547e-02,  1.48734527e-01,  2.49708275e-01, 1.46475140e-01],
-                    [ 9.32949059e-01,  2.33489450e-01,  3.84304411e-01, -1.35325598e-02],
-                    [-9.96893529e-03,  1.42242452e-02,  5.02034057e-03, -4.66406071e-02]],
-                [
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [-2.59938961e-02, -2.63172399e-02,  4.65109389e-03, 3.00565144e-01],
-                    [-1.59201270e-03, -2.02848177e-02, -2.60380154e-02, 3.90983528e-01],
-                    [ 8.70485640e-01, -5.48457771e-02,  3.24459921e-02, 6.67191728e-02]]])
-        B = np.array(
-            [
-                [
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00],
-                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 0.00000000e+00]],
-                [
-                    [ 8.40916986e-02, -6.74379191e-01,  4.14184808e-01, 6.96994653e-02],
-                    [ 1.37701713e-02,  2.87919480e-02, -9.12432271e-02, -2.99699931e-01]],
-                [
-                    [-1.02160995e-02,  5.14789438e-01, -3.00694970e-01, 2.04723249e-01],
-                    [ 2.58556998e-04, -4.44445006e-03,  4.10364069e-02, 3.52610402e-01]],
-                [
-                    [ 2.28217366e-02, -1.76918468e-02,  8.71910634e-02, 6.08327604e-01],
-                    [ 1.31207096e-01,  2.19817108e-03,  5.56598339e-02, -2.28968692e-01]]])
-
-        # theta_v = np.eye(3)
-        # Theta = Polytope(A=np.block([[np.eye(3)], [-np.eye(3)]]), b=1*np.ones(6,))
-        max_p, min_p = ([np.float64(-0.23350282236215453), np.float64(1.3746074284691114), np.float64(0.3194948960182299)], [np.float64(-1.818337915423683),np.float64(-0.26129257236983),np.float64(-0.6174046886837932)])
-        Theta = Polytope(A=np.block([[np.eye(3)], [-np.eye(3)]]), b=np.block([np.array(max_p), -np.array(min_p)]))  # np.block([np.array(max_p), -np.array(min_p)]0
-        
-
-        # A = np.stack([A0, dA1, dA2, dA3], axis=2)
-        # B = np.stack([B0, dB1, dB2, dB3], axis=2)
-
+        npzfile = np.load(os.path.join('src/cRAMPC/config', 'system_matrices.npz'))
+        A, B = npzfile['arr_0'], npzfile['arr_1']
         C = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
         C = np.stack([C, np.zeros((2, 4)), np.zeros((2, 4)), np.zeros((2, 4))], axis=2)
+        W = Polytope(
+                        A=np.block([[np.eye(4)], [-np.eye(4)]]), b=0.001 * np.ones((8, 1))
+                    )
 
-        Q, R = np.eye(4), np.diag([1/(0.46**2), 1/(1.90**2)]) #np.diag([1/(0.46**2), 1/(1.90**2)])
-        # K = np.array([[0.017, -0.41]])
+        E = Polytope(
+                        A=np.vstack((np.eye(2), -np.eye(2))),
+                        b=np.concatenate((np.ones(2) * 0.01, np.ones(2) * 0.01)),
+                    )
+
+        Theta_c = Polytope()
+
+        max_p, min_p = npzfile['arr_2'][:,1], npzfile['arr_2'][:,0]
+
+        Theta = Polytope(A = np.block([[np.eye(3)], [-np.eye(3)]]), b=np.block([np.array(max_p), -np.array(min_p)])) # np.block([np.array(max_p), -np.array(min_p)])
+
+        Q, R = np.eye(4), np.eye(2) #np.diag([1/(0.46**2), 1/(1.90**2)])
+        npz2file = np.load(os.path.join('src/cRAMPC/config', 'offline_matrices.npz'))
+        K, P = npz2file['arr_0'], npz2file['arr_1']
 
         opt = {
-            'K': None,
-            "solver": self.solver,
+            'K': K,
+            "solver": 'osqp',
             "verbose": False,
-            "svd": self.svd,
-            "xBound": (np.array([-1e4,-0.46, -0.01, -1.90]), np.array([1e4, 0.46, 0.01, 1.90])),
+            "svd": False,
+            "xBound": (np.array([-1.90/30, -0.46, -0.01, -1.90]), np.array([1.90/30, 0.46, 0.01, 1.90])),
             "uBound": (np.array([-0.46, -1.90]), np.array([0.46, 1.90])),
-            "name": self.name,
-            "W": Polytope(
-                A=np.block([[np.eye(4)], [-np.eye(4)]]), b=0.05 * np.ones((8, 1))
-            ),
+            "name": 'tet_mpc',
+            "W": W,
+            'E': E,
             "theta": Theta,
-            "lam": 1,
-            'par_filter': self.par_filter,
+            "lam": 0.98,
+            'par_filter': 'lms',
             'ref': 'trajectory',
         }
 
@@ -333,7 +283,7 @@ class Controller(Node):
 
         if self.flavor == "MPC":
             self.controller = CMPC(
-                {"A": self.A, "B": self.B, "C": self.C},
+                {"A": A[:,:,0], "B": B[:,:,0], "C": C[:,:,0]},
                 self.Q,
                 self.R,
                 self.horizon,
@@ -356,7 +306,8 @@ class Controller(Node):
             self.last_idx = (self.controller.N + 1) * self.controller.n
 
         self.controller.initialize(self.mode, self.constraints)
-        # self.controller.P = np.array(([[1.467, 0.207], [0.207, 1.731]]))
+        self.controller.P = P
+
         if self.recorder:
             self.tube_set = PolytopeMsg()
             tube_a = VecArray(array=[])
@@ -380,7 +331,7 @@ class Controller(Node):
         self.ref = None
 
         self.sub_odom = self.create_subscription(
-            Odometry, "ekf_odom", self.odom_callback, 10
+            Odometry, "odom", self.odom_callback, 10
         )
         self.curr_x = None
         self.get_logger().info("initialization done !")
@@ -394,20 +345,18 @@ class Controller(Node):
             self.get_logger().info("Received reference trajectory:")
             self.ref = []
             for i, vec in enumerate(msg.array):
-                self.ref.append(vec.data)
+                self.ref.append(np.array(vec.data))
         elif msg.__class__.__name__ == "Vec":
             self.ref = msg.data
+        self.ref = np.array(self.ref).reshape((-1, 1))
 
     def odom_callback(self, msg):
         """Receive current state from odometry."""
         # Calculate theta from quaternion
-        theta = np.arctan2(
-            2.0 * (msg.pose.pose.orientation.w * msg.pose.pose.orientation.z),
-            1.0 - 2.0 * (msg.pose.pose.orientation.z ** 2),
-        )
+        theta = 2 * np.arctan2(msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
         d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
-        self.curr_x = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, d_theta])
+        self.curr_x = np.array([d_theta, msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z])
 
     def timer_callback(self):
         """Solve the MPC problem and send the command."""

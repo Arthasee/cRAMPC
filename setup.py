@@ -32,6 +32,7 @@ setup(
             'controller = cRAMPC.controller:main',
             'path_generator = cRAMPC.path_generator:main',
             'prop = cRAMPC.test_propagation:main',
+            'generate_circle_traj = cRAMPC.generate_circle_traj:main',
         ],
     },
 )

@@ -281,7 +281,7 @@ class InvariantSet:
             
             next_poly.minimize_H_rep()
             
-            if next_poly.contains(prev_poly):
+            if next_poly.contains(0.99*prev_poly):
                 print(f"Convergence reached after {k} iterations")
                 break
 

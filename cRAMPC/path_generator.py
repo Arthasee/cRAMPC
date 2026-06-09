@@ -16,7 +16,7 @@ class PathGenerator(Node):
             "traj_file",
             "None"  # "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv",
         )
-        self.declare_parameter("ref_type", "ref")
+        self.declare_parameter("ref_type", "trajectory")
         self.declare_parameter("ref_point", [0.0])
 
         self.declare_parameter("initial_position", [2.0, 3.0])
@@ -29,6 +29,7 @@ class PathGenerator(Node):
         self.debug = True
         self.ref_point = None
         self.done = False
+        self.last_theta = 0.0
         self.ref_type = self.get_parameter("ref_type").get_parameter_value().string_value
         if self.ref_type == "ref":
             self.path_pub = self.create_publisher(Vec, "trajectory", 10)
@@ -39,7 +40,7 @@ class PathGenerator(Node):
             self.path_pub = self.create_publisher(VecArray, "trajectory", 10)
 
         self.odom_sub = self.create_subscription(
-            Odometry, "ekf_odom", self.odom_callback, 10
+            Odometry, "odom", self.odom_callback, 10
         )
 
         self.path = None
@@ -53,6 +54,10 @@ class PathGenerator(Node):
         self.load_trajectory_from_file()
 
     def odom_callback(self, msg):
+        # create theta from quaternion
+        theta = 2 * np.arctan2(msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
+        delta_theta = theta - self.last_theta
+        self.last_theta = theta
         if self.odom_type == "full":
             self.current_position = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.orientation.z,
                                      msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z]
@@ -63,7 +68,7 @@ class PathGenerator(Node):
         elif self.odom_type == "velocity":
             self.current_position = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z]
         elif self.odom_type == "velocity_orientation":
-            self.current_position = [msg.pose.pose.orientation.z, msg.twist.twist.linear.x]  # , msg.twist.twist.linear.y, msg.twist.twist.angular.z
+            self.current_position = [delta_theta, msg.twist.twist.linear.x]  # , msg.twist.twist.linear.y, msg.twist.twist.angular.z
         elif self.odom_type == "x":
             self.current_position = [msg.pose.pose.position.x]
         if self.done:
@@ -84,11 +89,11 @@ class PathGenerator(Node):
             distance_to_goal = np.linalg.norm(pos - current_pos_array)
             if (
                 distance_to_goal < 0.1
-                and self.last_index + 10 < len(self.path.array) - 1
+                and self.last_index + 6 < len(self.path.array) - 1
             ):
                 self.last_index += 1
                 path_to_publish.array = self.path.array[
-                    self.last_index: self.last_index + 10
+                    self.last_index: self.last_index + 6
                 ]
             elif distance_to_goal < 0.1 and self.last_index < len(self.path.array) - 1:
                 path_to_publish.array = self.path.array[self.last_index:]
@@ -97,7 +102,7 @@ class PathGenerator(Node):
                 rclpy.shutdown()
             else:
                 path_to_publish.array = self.path.array[
-                    self.last_index: self.last_index + 10
+                    self.last_index: self.last_index + 6
                 ]
             self.path_pub.publish(path_to_publish)
         else:
@@ -129,6 +134,7 @@ class PathGenerator(Node):
                 # Skip the header
                 next(f)
                 for line in f:
+                    thet = 0.0
                     if self.odom_type == "full":
                         x, y, theta, vx, vy, omega = map(float, line.strip().split(","))
                         self.path.array.append(Vec(data=[x, y, theta, vx, vy, omega]))
@@ -137,13 +143,16 @@ class PathGenerator(Node):
                         self.path.array.append(Vec(data=[x, y]))
                     elif self.odom_type == "position_orientation":
                         x, y, theta, _, _, _ = map(float, line.strip().split(","))
-                        self.path.array.append(Vec(data=[x, y, theta]))
+                        self.path.array.append(Vec(data=[x, y, thet-theta]))
+                        thet = theta
                     elif self.odom_type == "velocity":
                         _, _, _, vx, vy, omega = map(float, line.strip().split(","))
                         self.path.array.append(Vec(data=[vx, vy, omega]))
                     elif self.odom_type == "velocity_orientation":
-                        _, _, theta, vx, vy, omega = map(float, line.strip().split(","))
-                        self.path.array.append(Vec(data=[theta, vx]))  # , vy, omega
+                        # _, _, theta, vx, vy, omega = map(float, line.strip().split(","))
+                        theta, vx = map(float, line.strip().split(","))
+
+                        self.path.array.append(Vec(data=[theta, vx]))
                     elif self.odom_type == "x":
                         x, _, _, _, _, _ = map(float, line.strip().split(","))
                         self.path.array.append(Vec(data=[x]))

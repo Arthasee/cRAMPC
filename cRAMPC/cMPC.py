@@ -17,6 +17,14 @@ from cRAMPC.create_system import create_system
 
 from cRAMPC.invariance_tools import InvariantSet, GainSynthesis
 
+# from symbolic import Symbolic
+# from options import Options
+# from polytopesystem import PolytopeSystem
+# from cartesian_product import cartesian_product
+# from pagemtimes import pagemtimes
+# from create_system import create_system
+# from invariance_tools import InvariantSet, GainSynthesis
+
 # ---------------------------------------------------------------------------
 # Utility helpers
 # ---------------------------------------------------------------------------
@@ -492,10 +500,19 @@ class CMPC:
                 self.P,
                 ca.GenMX_zeros((self.m, self.m)),
             )
+            # offset_cost = ca.sum2(
+            #     quad_cost.map(self.sym.r.shape[1])(
+            #         self.sys.C.squeeze().T
+            #         @ (np.array([self.sys.C.squeeze()]) @ self.sym.xa - self.sym.r),
+            #         np.zeros((self.m, 1)),
+            #         self.Q,
+            #         np.zeros((self.m, self.m)),
+            #     )
+            # )
             offset_cost = ca.sum2(
                 quad_cost.map(self.sym.r.shape[1])(
                     self.sys.C.squeeze().T
-                    @ (np.array([self.sys.C.squeeze()]) @ self.sym.xa - self.sym.r),
+                    @ (self.sys.C.squeeze() @ self.sym.xa - self.sym.r),
                     np.zeros((self.m, 1)),
                     self.Q,
                     np.zeros((self.m, self.m)),

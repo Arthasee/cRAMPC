@@ -8,15 +8,15 @@ from launch_ros.actions import Node as Node
 def generate_launch_description():
     """Generate the launch description for c_rampc."""
     robot_name_arg = actions.DeclareLaunchArgument(
-        "robot_name", default_value="IDonat", description="Namespace for the robot"
+        "robot_name", default_value="IDonatello", description="Namespace for the robot"
     )
     flavor_arg = actions.DeclareLaunchArgument(
         "flavor",
-        default_value="RAMPC",
+        default_value="RMPC",
         description="Flavor of the controller - MPC, RMPC or RAMPC",
     )
     horizon_arg = actions.DeclareLaunchArgument(
-        "horizon", default_value="10", description="Horizon for the MPC controller"
+        "horizon", default_value="5", description="Horizon for the MPC controller"
     )
     mode_arg = actions.DeclareLaunchArgument(
         "mode",
@@ -25,7 +25,7 @@ def generate_launch_description():
     )
     recorder_arg = actions.DeclareLaunchArgument(
         "recorder",
-        default_value="True",
+        default_value="False",
         description="Whether to record the data or not",
     )
     A_flat_arg = actions.DeclareLaunchArgument(
@@ -170,7 +170,7 @@ def generate_launch_description():
                     {"R_flat": R_flat},
                     {"size_x": size_x},
                     {"size_u": size_u},
-                    {"size_y": size_y},
+                    {"size_y": 2},
                 ],
                 on_exit=launch.actions.Shutdown(),
             ),
@@ -190,9 +190,9 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     {
-                        "traj_file": "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
+                        "traj_file": "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
                     },
-                    {"ref_type": "traj"},
+                    {"ref_type": "trajectory"},
                     {"ref_point": [0.0]},
                     {"odom_type": "velocity_orientation"},
                 ],

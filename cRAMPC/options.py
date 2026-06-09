@@ -18,7 +18,7 @@ class Options:
         self.name = options.get("name") or f"CMPC_{np.random.randint(1000)}"
         self.svd = options.get("svd") if options.get("svd") is not None else False
         self.Nc = options.get("Nc") if options.get("Nc") not in (None, 0) else None
-        self.sigma = options.get("sigma") if options.get("sigma") not in (None, 0) else 0.95
+        self.sigma = options.get("sigma") if options.get("sigma") not in (None, 0) else 0.99
         self.K = options.get("K") if options.get("K") is not None else None
         self.xBound = options.get("xBound") if options.get("xBound") is not None else None
         self.uBound = options.get("uBound") if options.get("uBound") is not None else None
