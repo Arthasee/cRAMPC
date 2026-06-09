@@ -311,9 +311,9 @@ class Controller(Node):
         if self.recorder:
             self.tube_set = PolytopeMsg()
             tube_a = VecArray(array=[])
+            self.ta = [Vec(data=a) for a in self.controller.V.A.tolist()]
+            tube_a.array = self.ta
             tube_b = Vec()
-            for a in self.controller.V.A.tolist():
-                tube_a.array.append(Vec(data=a))
             tube_b.data = self.controller.V.b.tolist()
             self.tube_set.a.array = tube_a.array
             self.tube_set.b.array.append(tube_b)
@@ -344,11 +344,10 @@ class Controller(Node):
         if msg.__class__.__name__ == "VecArray":
             self.get_logger().info("Received reference trajectory:")
             self.ref = []
-            for i, vec in enumerate(msg.array):
-                self.ref.append(np.array(vec.data))
+            self.ref = np.array([vec.data for vec in msg.array]).reshape(-1, 1)
         elif msg.__class__.__name__ == "Vec":
             self.ref = msg.data
-        self.ref = np.array(self.ref).reshape((-1, 1))
+        # self.ref = np.array(self.ref).reshape((-1, 1))
 
     def odom_callback(self, msg):
         """Receive current state from odometry."""
@@ -378,8 +377,7 @@ class Controller(Node):
                 self.tube_set = PolytopeMsg()
                 tube_a = VecArray(array=[])
                 tube_b = Vec()
-                for a in self.controller.V.A.tolist():
-                    tube_a.array.append(Vec(data=a))
+                tube_a = self.ta
                 tube_b.data = self.controller.V.b.tolist()
                 self.tube_set.a.array = tube_a.array
                 self.tube_set.b.array.append(tube_b)
