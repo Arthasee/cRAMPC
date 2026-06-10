@@ -231,8 +231,6 @@ class CMPC:
         self.gain_synth = None
 
         self.first_time = True
-        self.new_lbg = []
-        self.new_ubg = []
 
     def add_hard_constraints(self, *hConstraints):
         """Add hard constraints to the MPC problem."""
@@ -431,26 +429,22 @@ class CMPC:
             "print_time": True,
         }  # TODO: Fill the dictionary with options for the QP solver
         self._set_controller(opt)
-        
-        for i, val in enumerate(self.lbg):
-            self.new_lbg = np.concatenate((self.new_lbg, val))
-            self.new_ubg = np.concatenate((self.new_ubg, self.ubg[i]))
 
     def solve(self, x0, r=None):
         """Solve the MPC problem for the current state and reference."""
         if r is None:
             r = np.zeros(self.sym.r.shape)
-        # new_lbg = []
-        # new_ubg = []
-        # for i, val in enumerate(self.lbg):
-        #     new_lbg = np.concatenate((new_lbg, val))
-        #     new_ubg = np.concatenate((new_ubg, self.ubg[i]))
+        new_lbg = []
+        new_ubg = []
+        for i, val in enumerate(self.lbg):
+            new_lbg = np.concatenate((new_lbg, val))
+            new_ubg = np.concatenate((new_ubg, self.ubg[i]))
         if self.first_time:
-            self.sol = self.qpsol(p=ca.vertcat(x0, r), lbg=self.new_lbg, ubg=self.new_ubg)
+            self.sol = self.qpsol(p=ca.vertcat(x0, r), lbg=new_lbg, ubg=new_ubg)
             self.first_time = False
         else:
             x_warm, _ = self._warm_start()
-            self.sol = self.qpsol(p=ca.vertcat(x0, r), lbg=self.new_lbg, ubg=self.new_ubg, x0=x_warm)
+            self.sol = self.qpsol(p=ca.vertcat(x0, r), lbg=new_lbg, ubg=new_ubg, x0=x_warm)
 
 
         self.u_star = self.sol["x"][
@@ -506,15 +500,6 @@ class CMPC:
                 self.P,
                 ca.GenMX_zeros((self.m, self.m)),
             )
-            # offset_cost = ca.sum2(
-            #     quad_cost.map(self.sym.r.shape[1])(
-            #         self.sys.C.squeeze().T
-            #         @ (np.array([self.sys.C.squeeze()]) @ self.sym.xa - self.sym.r),
-            #         np.zeros((self.m, 1)),
-            #         self.Q,
-            #         np.zeros((self.m, self.m)),
-            #     )
-            # )
             offset_cost = ca.sum2(
                 quad_cost.map(self.sym.r.shape[1])(
                     self.sys.C.squeeze().T
@@ -954,8 +939,8 @@ class CMPC:
         if self.track:
             decision_vars = ca.vertcat(
                 decision_vars,
-                ca.reshape(self.sym.xa, (-1, 1)),
-                ca.reshape(self.sym.ua, (-1, 1)),
+                ca.reshape(self.sym.xa, (1, -1)).T,
+                ca.reshape(self.sym.ua, (1, -1)).T,
             )
 
         if self.svd_flag:

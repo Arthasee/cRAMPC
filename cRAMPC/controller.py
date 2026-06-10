@@ -1,7 +1,15 @@
 """The Node to implement cRAMPC library with ROS2."""
 
 import os
+import sys
 
+if 'VIRTUAL_ENV' in os.environ:
+    python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    venv_path = os.path.join(os.environ['VIRTUAL_ENV'], 'lib', python_version, 'site-packages')
+    if venv_path not in sys.path:
+        sys.path.insert(0, venv_path)
+import matplotlib
+print(f"Current matplotlib version: {matplotlib.__version__}")
 from cRAMPC.cRAMPC import CRAMPC
 from cRAMPC.cMPC import CMPC
 from cRAMPC.cRMPC import CRMPC
@@ -16,6 +24,7 @@ import mosek
 from nav_msgs.msg import Odometry
 
 import numpy as np
+
 
 from pycvxset import Polytope
 from pycvxset import common as cpy
@@ -87,7 +96,7 @@ class Controller(Node):
         self.declare_parameter("svd", False)
         self.svd = self.get_parameter("svd").get_parameter_value().bool_value
 
-        self.declare_parameter("ref", "trajectory")
+        self.declare_parameter("ref", "ref")
         self.ref_type = self.get_parameter("ref").get_parameter_value().string_value
 
         self.declare_parameter("lam", 0.999)
@@ -276,7 +285,7 @@ class Controller(Node):
             "theta": Theta,
             "lam": 0.98,
             'par_filter': 'lms',
-            'ref': 'trajectory',
+            'ref': 'ref',
         }
 
         # -------------SHOULD BE DELETED AFTER TESTING PHASE------------- #
@@ -347,7 +356,7 @@ class Controller(Node):
             self.ref = np.array([vec.data for vec in msg.array]).reshape(-1, 1)
         elif msg.__class__.__name__ == "Vec":
             self.ref = msg.data
-        # self.ref = np.array(self.ref).reshape((-1, 1))
+        self.ref = np.array(self.ref).reshape((-1, 1))
 
     def odom_callback(self, msg):
         """Receive current state from odometry."""

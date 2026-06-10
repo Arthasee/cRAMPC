@@ -173,28 +173,28 @@ def generate_launch_description():
                     ('odometry/filtered', 'odom_ekf'),
                 ],
             ),
-            # Node(
-            #     namespace=robot_name,
-            #     package="cRAMPC",
-            #     executable="controller",
-            #     name="controller",
-            #     output="screen",
-            #     parameters=[
-            #         {"flavor": flavor},
-            #         {"horizon": horizon},
-            #         {"mode": mode},
-            #         {"recorder": recorder},
-            #         {"A_flat": A_flat},
-            #         {"B_flat": B_flat},
-            #         {"C_flat": C_flat},
-            #         {"Q_flat": Q_flat},
-            #         {"R_flat": R_flat},
-            #         {"size_x": size_x},
-            #         {"size_u": size_u},
-            #         {"size_y": 2},
-            #     ],
-            #     on_exit=launch.actions.Shutdown(),
-            # ),
+            Node(
+                namespace=robot_name,
+                package="cRAMPC",
+                executable="controller",
+                name="controller",
+                output="screen",
+                parameters=[
+                    {"flavor": flavor},
+                    {"horizon": horizon},
+                    {"mode": mode},
+                    {"recorder": recorder},
+                    {"A_flat": A_flat},
+                    {"B_flat": B_flat},
+                    {"C_flat": C_flat},
+                    {"Q_flat": Q_flat},
+                    {"R_flat": R_flat},
+                    {"size_x": size_x},
+                    {"size_u": size_u},
+                    {"size_y": 2},
+                ],
+                on_exit=launch.actions.Shutdown(),
+            ),
             # Node(
             #     namespace=robot_name,
             #     package="cRAMPC",
@@ -203,22 +203,22 @@ def generate_launch_description():
             #     output='screen',
             #     on_exit=launch.actions.Shutdown(),
             # ),
-            # Node(
-            #     namespace=robot_name,
-            #     package="cRAMPC",
-            #     executable="path_generator",
-            #     name="path_generator",
-            #     output="screen",
-            #     parameters=[
-            #         {
-            #             "traj_file": "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
-            #         },
-            #         {"ref_type": "trajectory"},
-            #         {"ref_point": [0.0]},
-            #         {"odom_type": "velocity_orientation"},
-            #     ],
-            #     on_exit=actions.Shutdown(),
+            Node(
+                namespace=robot_name,
+                package="cRAMPC",
+                executable="path_generator",
+                name="path_generator",
+                output="screen",
+                parameters=[
+                    {
+                        "traj_file": 'None'#"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
+                    },
+                    {"ref_type": "ref"},
+                    {"ref_point": [0.006, 0.07]},
+                    {"odom_type": "velocity_orientation"},
+                ],
+                on_exit=actions.Shutdown(),
 
-            # ),
+            ),
         ]
     )

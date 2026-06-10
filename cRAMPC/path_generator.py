@@ -16,7 +16,7 @@ class PathGenerator(Node):
             "traj_file",
             "None"  # "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv",
         )
-        self.declare_parameter("ref_type", "trajectory")
+        self.declare_parameter("ref_type", "ref")
         self.declare_parameter("ref_point", [0.0])
 
         self.declare_parameter("initial_position", [2.0, 3.0])
@@ -110,11 +110,11 @@ class PathGenerator(Node):
             current_pos_array = np.array(self.current_position)
             distance_to_goal = np.linalg.norm(pos - current_pos_array)
             self.get_logger().info(f'distance : {distance_to_goal}')
-            if distance_to_goal <= 0.1:
-                self.get_logger().info('hello you hsould stop')
-                self.done = True
-                self.get_logger().info("Reached the goal!")
-                rclpy.shutdown()
+            # if distance_to_goal <= 0.1:
+            #     self.get_logger().info('hello you hsould stop')
+            #     self.done = True
+            #     self.get_logger().info("Reached the goal!")
+            #     rclpy.shutdown()
             path_to_publish = self.path
             self.path_pub.publish(path_to_publish)
 
