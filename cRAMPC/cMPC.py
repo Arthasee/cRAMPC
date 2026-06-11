@@ -939,12 +939,12 @@ class CMPC:
         if self.track:
             decision_vars = ca.vertcat(
                 decision_vars,
-                ca.reshape(self.sym.xa, (1, -1)).T,
-                ca.reshape(self.sym.ua, (1, -1)).T,
+                ca.reshape(self.sym.xa, (-1, 1)),
+                ca.reshape(self.sym.ua, (-1, 1)),
             )
 
         if self.svd_flag:
-            decision_vars = ca.vertcat(decision_vars, ca.reshape(self.nu, (1, -1)).T)
+            decision_vars = ca.vertcat(decision_vars, ca.reshape(self.nu, (-1, 1)))
         new_g = ca.MX()
         for val in self.g:
             print(val)
@@ -997,4 +997,3 @@ class CMPC:
             if self.track
             else np.vstack((dec_x, dec_u))
         ), last_idx
-

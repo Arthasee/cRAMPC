@@ -68,7 +68,7 @@ class SetUpdater:
 
         # cp.Parameter per le misure: vengono sovrascritti ogni step in update()
         self.z = cp.Parameter((A_B.shape[2], 1))
-        self.x = cp.Parameter((A_B.shape[1], 1))
+        self.x = cp.Parameter((C.shape[2], 1))
         self.y = cp.Parameter((C.shape[1], 1))
 
         self.theta_problem  = None
@@ -235,7 +235,7 @@ class SetUpdater:
 
             self.thetaSym.h_0.value = np.array(Theta, dtype=float).reshape(-1, 1).copy()
 
-            self.theta_problem.solve(solver=cp.CLARABEL, verbose=False)
+            self.theta_problem.solve(solver=cp.OSQP, verbose=False)
 
             if self.theta_problem.status in ("optimal", "optimal_inaccurate"):
                 # FIX: .copy() su h_N.value — è un buffer interno a CVXPY

@@ -1,39 +1,32 @@
 """The Node to implement cRAMPC library with ROS2."""
 
 import os
-import sys
 
-if 'VIRTUAL_ENV' in os.environ:
-    python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    venv_path = os.path.join(os.environ['VIRTUAL_ENV'], 'lib', python_version, 'site-packages')
-    if venv_path not in sys.path:
-        sys.path.insert(0, venv_path)
-import matplotlib
-print(f"Current matplotlib version: {matplotlib.__version__}")
-from cRAMPC.cRAMPC import CRAMPC
 from cRAMPC.cMPC import CMPC
+from cRAMPC.cRAMPC import CRAMPC
 from cRAMPC.cRMPC import CRMPC
 
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, Pose2D
 
 from inter_crampc.msg import PolytopeMsg, Vec, VecArray
 
-import mosek
-
+from std_msgs.msg import Bool
 
 from nav_msgs.msg import Odometry
 
 import numpy as np
+
+import casadi as ca
 
 
 from pycvxset import Polytope
 from pycvxset import common as cpy
 from pycvxset.common import constants
 
-if constants.DEFAULT_LP_SOLVER_STR == "MOSEK":
-    constants.DEFAULT_LP_SOLVER_STR = "CLARABEL"
-    constants.DEFAULT_SOCP_SOLVER_STR = "CLARABEL"
-    constants.DEFAULT_SDP_SOLVER_STR = "CLARABEL"
+if constants.DEFAULT_LP_SOLVER_STR == 'MOSEK':
+    constants.DEFAULT_LP_SOLVER_STR = 'CLARABEL'
+    constants.DEFAULT_SOCP_SOLVER_STR = 'CLARABEL'
+    constants.DEFAULT_SDP_SOLVER_STR = 'CLARABEL'
 
 import rclpy
 from rclpy.node import Node
@@ -44,83 +37,83 @@ class Controller(Node):
 
     def __init__(self):
         """Initialize the ROS2 Node."""
-        super().__init__("controller")
-        self.get_logger().info("Controller node has been started.")
-        self.get_logger().info("Everyone loves Ice Cream !")
+        super().__init__('controller')
+        self.get_logger().info('Controller node has been started.')
+        self.get_logger().info('Everyone loves Ice Cream !')
 
-        self.declare_parameter("flavor", "RMPC")
-        self.flavor = self.get_parameter("flavor").get_parameter_value().string_value
+        self.declare_parameter('flavor', 'RMPC')
+        self.flavor = self.get_parameter('flavor').get_parameter_value().string_value
 
-        self.declare_parameter("Ts", 0.0)
-        self.ts = self.get_parameter("Ts").get_parameter_value().double_value
+        self.declare_parameter('Ts', 0.0)
+        self.ts = self.get_parameter('Ts').get_parameter_value().double_value
 
-        self.declare_parameter("horizon", 10)
-        self.horizon = self.get_parameter("horizon").get_parameter_value().integer_value
+        self.declare_parameter('horizon', 10)
+        self.horizon = self.get_parameter('horizon').get_parameter_value().integer_value
 
-        self.declare_parameter("mode", "LQR")
-        self.mode = self.get_parameter("mode").get_parameter_value().string_value
+        self.declare_parameter('mode', 'LQR')
+        self.mode = self.get_parameter('mode').get_parameter_value().string_value
 
-        self.declare_parameter("recorder", True)
-        self.recorder = self.get_parameter("recorder").get_parameter_value().bool_value
+        self.declare_parameter('recorder', True)
+        self.recorder = self.get_parameter('recorder').get_parameter_value().bool_value
 
-        self.declare_parameter("relax", "")
-        self.relax = self.get_parameter("relax").get_parameter_value().string_value
+        self.declare_parameter('relax', '')
+        self.relax = self.get_parameter('relax').get_parameter_value().string_value
 
-        self.declare_parameter("name", "test_mpc")
-        self.name = self.get_parameter("name").get_parameter_value().string_value
+        self.declare_parameter('name', 'test_mpc')
+        self.name = self.get_parameter('name').get_parameter_value().string_value
 
-        self.declare_parameter("verbose", True)
-        self.verbose = self.get_parameter("verbose").get_parameter_value().bool_value
+        self.declare_parameter('verbose', True)
+        self.verbose = self.get_parameter('verbose').get_parameter_value().bool_value
 
-        self.declare_parameter("solver", "osqp")
-        self.solver = self.get_parameter("solver").get_parameter_value().string_value
+        self.declare_parameter('solver', 'osqp')
+        self.solver = self.get_parameter('solver').get_parameter_value().string_value
 
-        self.declare_parameter("lbx", [-1e4, -10.0])
-        self.lbx = self.get_parameter("lbx").get_parameter_value().double_array_value
-        self.declare_parameter("ubx", [1e4, 10.0])
-        self.ubx = self.get_parameter("ubx").get_parameter_value().double_array_value
-        self.declare_parameter("lbu", [-5.0])
-        self.lbu = self.get_parameter("lbu").get_parameter_value().double_array_value
-        self.declare_parameter("ubu", [5.0])
-        self.ubu = self.get_parameter("ubu").get_parameter_value().double_array_value
-        self.declare_parameter("lby", [0.0])
-        self.lby = self.get_parameter("lby").get_parameter_value().double_array_value
-        self.declare_parameter("uby", [0.0])
-        self.uby = self.get_parameter("uby").get_parameter_value().double_array_value
+        self.declare_parameter('lbx', [-1e4, -10.0])
+        self.lbx = self.get_parameter('lbx').get_parameter_value().double_array_value
+        self.declare_parameter('ubx', [1e4, 10.0])
+        self.ubx = self.get_parameter('ubx').get_parameter_value().double_array_value
+        self.declare_parameter('lbu', [-5.0])
+        self.lbu = self.get_parameter('lbu').get_parameter_value().double_array_value
+        self.declare_parameter('ubu', [5.0])
+        self.ubu = self.get_parameter('ubu').get_parameter_value().double_array_value
+        self.declare_parameter('lby', [0.0])
+        self.lby = self.get_parameter('lby').get_parameter_value().double_array_value
+        self.declare_parameter('uby', [0.0])
+        self.uby = self.get_parameter('uby').get_parameter_value().double_array_value
 
         if self.lby == [0] and self.uby == [0]:
             self.yBound = None
         else:
             self.yBound = (np.array(self.lby), np.array(self.uby))
 
-        self.declare_parameter("svd", False)
-        self.svd = self.get_parameter("svd").get_parameter_value().bool_value
+        self.declare_parameter('svd', False)
+        self.svd = self.get_parameter('svd').get_parameter_value().bool_value
 
-        self.declare_parameter("ref", "ref")
-        self.ref_type = self.get_parameter("ref").get_parameter_value().string_value
+        self.declare_parameter('ref_type', 'ref')
+        self.ref_type = self.get_parameter('ref_type').get_parameter_value().string_value
 
-        self.declare_parameter("lam", 0.999)
-        self.lam = self.get_parameter("lam").get_parameter_value().double_value
+        self.declare_parameter('lam', 0.999)
+        self.lam = self.get_parameter('lam').get_parameter_value().double_value
 
-        self.declare_parameter("lpv_flag", False)
-        self.lpv_flag = self.get_parameter("lpv_flag").get_parameter_value().bool_value
+        self.declare_parameter('lpv_flag', False)
+        self.lpv_flag = self.get_parameter('lpv_flag').get_parameter_value().bool_value
 
-        self.declare_parameter("par_filter", "lms")
+        self.declare_parameter('par_filter', 'lms')
         self.par_filter = (
-            self.get_parameter("par_filter").get_parameter_value().string_value
+            self.get_parameter('par_filter').get_parameter_value().string_value
         )
 
-        self.declare_parameter("Nc", 0)
-        self.Nc = self.get_parameter("Nc").get_parameter_value().integer_value
+        self.declare_parameter('Nc', 0)
+        self.Nc = self.get_parameter('Nc').get_parameter_value().integer_value
 
-        self.declare_parameter("sigma", 0.95)
-        self.sigma = self.get_parameter("sigma").get_parameter_value().double_value
+        self.declare_parameter('sigma', 0.95)
+        self.sigma = self.get_parameter('sigma').get_parameter_value().double_value
 
-        self.declare_parameter("customJ", "")
-        self.customJ = self.get_parameter("customJ").get_parameter_value().string_value
+        self.declare_parameter('customJ', '')
+        self.customJ = self.get_parameter('customJ').get_parameter_value().string_value
 
         self.declare_parameter(
-            "A_flat",
+            'A_flat',
             [
                 -7.0e-01,
                 0.0e00,
@@ -141,64 +134,64 @@ class Controller(Node):
             ],
         )  # [1., 1., 0., 1.])
         self.declare_parameter(
-            "B_flat", [0.2, -0.1, 0.0, 0.1, 1.0, 0.0, 0.4, -0.4]
+            'B_flat', [0.2, -0.1, 0.0, 0.1, 1.0, 0.0, 0.4, -0.4]
         )  # [0., 1.])
         self.declare_parameter(
-            "C_flat", [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            'C_flat', [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )  # [1., 0.])
-        self.declare_parameter("Q_flat", [1.0, 0.0, 0.0, 1.0])
-        self.declare_parameter("R_flat", [1.0])
+        self.declare_parameter('Q_flat', [1.0, 0.0, 0.0, 1.0])
+        self.declare_parameter('R_flat', [1.0])
 
-        self.declare_parameter("size_x", 2)
-        self.size_x = self.get_parameter("size_x").get_parameter_value().integer_value
-        self.declare_parameter("size_u", 1)
-        self.size_u = self.get_parameter("size_u").get_parameter_value().integer_value
-        self.declare_parameter("size_y", 1)
-        self.size_y = self.get_parameter("size_y").get_parameter_value().integer_value
+        self.declare_parameter('size_x', 2)
+        self.size_x = self.get_parameter('size_x').get_parameter_value().integer_value
+        self.declare_parameter('size_u', 1)
+        self.size_u = self.get_parameter('size_u').get_parameter_value().integer_value
+        self.declare_parameter('size_y', 1)
+        self.size_y = self.get_parameter('size_y').get_parameter_value().integer_value
 
-        self.declare_parameter("K_flat", [0.0, 0.0])
+        self.declare_parameter('K_flat', [0.0, 0.0])
         self.K = np.reshape(
-            self.get_parameter("K_flat").get_parameter_value().double_array_value,
+            self.get_parameter('K_flat').get_parameter_value().double_array_value,
             (self.size_u, self.size_x),
         )
 
-        self.declare_parameter("W_A_flat", [1.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, -1.0])
-        self.declare_parameter("W_b_flat", [0.05, 0.05, 0.05, 0.05])
-        W_b = self.get_parameter("W_b_flat").get_parameter_value().double_array_value
+        self.declare_parameter('W_A_flat', [1.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, -1.0])
+        self.declare_parameter('W_b_flat', [0.05, 0.05, 0.05, 0.05])
+        W_b = self.get_parameter('W_b_flat').get_parameter_value().double_array_value
         self.W = Polytope(
             A=np.reshape(
-                self.get_parameter("W_A_flat").get_parameter_value().double_array_value,
+                self.get_parameter('W_A_flat').get_parameter_value().double_array_value,
                 (len(W_b), self.size_x),
             ),
             b=np.array(W_b).reshape((-1, 1)),
         )
 
-        self.declare_parameter("theta_V_flat", [0.0, 0.0, 0.0, 0.0])
+        self.declare_parameter('theta_V_flat', [0.0, 0.0, 0.0, 0.0])
         theta_v_flat = (
-            self.get_parameter("theta_V_flat").get_parameter_value().double_array_value
+            self.get_parameter('theta_V_flat').get_parameter_value().double_array_value
         )
 
-        self.cmd_pub = self.create_publisher(TwistStamped, "cmd_vel", 10)
+        self.cmd_pub = self.create_publisher(TwistStamped, 'cmd_vel', 10)
 
         self.A = np.reshape(
-            self.get_parameter("A_flat").get_parameter_value().double_array_value,
+            self.get_parameter('A_flat').get_parameter_value().double_array_value,
             (self.size_x, self.size_x, -1),
         )
         self.B = np.reshape(
-            self.get_parameter("B_flat").get_parameter_value().double_array_value,
+            self.get_parameter('B_flat').get_parameter_value().double_array_value,
             (self.size_x, self.size_u, -1),
         )
         self.C = np.reshape(
-            self.get_parameter("C_flat").get_parameter_value().double_array_value,
+            self.get_parameter('C_flat').get_parameter_value().double_array_value,
             (self.size_y, self.size_x, -1),
         )
 
         self.Q = np.reshape(
-            self.get_parameter("Q_flat").get_parameter_value().double_array_value,
+            self.get_parameter('Q_flat').get_parameter_value().double_array_value,
             (self.size_x, self.size_x),
         )
         self.R = np.reshape(
-            self.get_parameter("R_flat").get_parameter_value().double_array_value,
+            self.get_parameter('R_flat').get_parameter_value().double_array_value,
             (self.size_u, self.size_u),
         )
         if not np.array(theta_v_flat).any():
@@ -207,9 +200,9 @@ class Controller(Node):
             theta_v = np.reshape(theta_v_flat, (-1, self.A.shape[2]))
             self.theta = Polytope(V=theta_v)
 
-        self.declare_parameter("theta_c_flat", [0.0, 0.0, 0.0, 0.0])
+        self.declare_parameter('theta_c_flat', [0.0, 0.0, 0.0, 0.0])
         theta_c_flat = (
-            self.get_parameter("theta_c_flat").get_parameter_value().double_array_value
+            self.get_parameter('theta_c_flat').get_parameter_value().double_array_value
         )
         if not np.array(theta_c_flat).any():
             self.theta_c = None
@@ -224,98 +217,108 @@ class Controller(Node):
             self.K = None
 
         self.options = {
-            "Ts": self.ts,
-            "K": self.K,
-            "solver": self.solver,
-            "verbose": self.verbose,
-            "relax": self.relax,
-            "customJ": self.customJ,
-            "svd": self.svd,
-            "Nc": self.Nc,
-            "sigma": self.sigma,
-            "xBound": (np.array(self.lbx), np.array(self.ubx)),
-            "uBound": (np.array(self.lbu), np.array(self.ubu)),
-            "yBound": self.yBound,
-            "W": self.W,
-            "theta": self.theta,
-            "theta_c": self.theta_c,
-            "lpv_flag": self.lpv_flag,
-            "par_filter": self.par_filter,
-            "lam": self.lam,
-            "E": self.E,
-            "name": self.name,
-            "ref": self.ref_type,
+            'Ts': self.ts,
+            'K': self.K,
+            'solver': self.solver,
+            'verbose': self.verbose,
+            'relax': self.relax,
+            'customJ': self.customJ,
+            'svd': self.svd,
+            'Nc': self.Nc,
+            'sigma': self.sigma,
+            'xBound': (np.array(self.lbx), np.array(self.ubx)),
+            'uBound': (np.array(self.lbu), np.array(self.ubu)),
+            'yBound': self.yBound,
+            'W': self.W,
+            'theta': self.theta,
+            'theta_c': self.theta_c,
+            'lpv_flag': self.lpv_flag,
+            'par_filter': self.par_filter,
+            'lam': self.lam,
+            'E': self.E,
+            'name': self.name,
+            'ref': self.ref_type,
         }
 
         self.last_theta = 0.0
 
-        npzfile = np.load(os.path.join('src/cRAMPC/config', 'system_matrices.npz'))
-        A, B = npzfile['arr_0'], npzfile['arr_1']
-        C = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
-        C = np.stack([C, np.zeros((2, 4)), np.zeros((2, 4)), np.zeros((2, 4))], axis=2)
+        # npzfile = np.load(os.path.join('src/cRAMPC/config', 'system_matrices.npz'))
+        A = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
+        A = A.transpose(1,2,0).copy()
+
+        B = np.block([[[np.zeros((2,2))],[0, 1]],[[1, 0], [np.zeros((2,2))]],[[np.zeros((1,2))],[1, 0], [np.zeros((1,2))]]])/30
+        B = B.transpose(1,2,0).copy()
+
+
+        C = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
+        C = C.transpose(1,2,0).copy()
+
+        Q, R = 100* np.diag(np.array([1, 1, 0.8])), 0.5*np.eye(2)
+        Theta = Polytope(A = np.block([[np.eye(2)], [-np.eye(2)]]),
+                        b=np.ones((4,1)))
+
+        # Define the MPC parameters
+        N = 10  # Prediction horizon
+
         W = Polytope(
-                        A=np.block([[np.eye(4)], [-np.eye(4)]]), b=0.001 * np.ones((8, 1))
+                        A=np.block([[np.eye(3)], [-np.eye(3)]]), b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
                     )
 
         E = Polytope(
-                        A=np.vstack((np.eye(2), -np.eye(2))),
-                        b=np.concatenate((np.ones(2) * 0.01, np.ones(2) * 0.01)),
+                        A=np.block([[np.eye(3)], [-np.eye(3)]]), b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
                     )
 
-        Theta_c = Polytope()
+        # Theta_c = Polytope()
 
-        max_p, min_p = npzfile['arr_2'][:,1], npzfile['arr_2'][:,0]
+        # max_p, min_p = npzfile['arr_2'][:, 1], npzfile['arr_2'][:, 0]
 
-        Theta = Polytope(A = np.block([[np.eye(3)], [-np.eye(3)]]), b=np.block([np.array(max_p), -np.array(min_p)])) # np.block([np.array(max_p), -np.array(min_p)])
-
-        Q, R = np.eye(4), np.eye(2) #np.diag([1/(0.46**2), 1/(1.90**2)])
-        npz2file = np.load(os.path.join('src/cRAMPC/config', 'offline_matrices.npz'))
+        npz2file = np.load(os.path.join('src/cRAMPC/config', 'kin_offline_mat.npz'))
         K, P = npz2file['arr_0'], npz2file['arr_1']
 
-        opt = {
-            'K': K,
-            "solver": 'osqp',
-            "verbose": False,
+        options = {
+            "solver": "osqp",
+            "verbose": True,
             "svd": False,
-            "xBound": (np.array([-1.90/30, -0.46, -0.01, -1.90]), np.array([1.90/30, 0.46, 0.01, 1.90])),
-            "uBound": (np.array([-0.46, -1.90]), np.array([0.46, 1.90])),
-            "name": 'tet_mpc',
-            "W": W,
+            'xBound':(-np.array([10, 5, 1e4]), np.array([10, 5, 1e4])),
+            'uBound':(-np.array([0.46, 1.90]), np.array([0.46, 1.90])),
+            "name": "turtle_controller",
+            'W': W,
             'E': E,
-            "theta": Theta,
-            "lam": 0.98,
-            'par_filter': 'lms',
-            'ref': 'ref',
+            'K': K,
+            'lam': 1,
+            'theta': Theta,
+            'par_filter': 'kf',
+            'lpv_flag': False,
+            'ref': 'ref'
         }
 
         # -------------SHOULD BE DELETED AFTER TESTING PHASE------------- #
 
-        if self.flavor == "MPC":
+        if self.flavor == 'MPC':
             self.controller = CMPC(
-                {"A": A[:,:,0], "B": B[:,:,0], "C": C[:,:,0]},
+                {'A': A[:, :, 0], 'B': B[:, :, 0], 'C': C[:, :, 0]},
                 self.Q,
                 self.R,
                 self.horizon,
                 self.options,
             )
-        elif self.flavor == "RMPC":
+        elif self.flavor == 'RMPC':
             self.controller = CRMPC(
-                {"A": A, "B": B, "C": C},
+                {'A': A, 'B': B, 'C': C},
                 Q,
                 R,
                 self.horizon,
-                opt,
+                options,
             )
         elif self.flavor == 'RAMPC':
             self.controller = CRAMPC({'A': A, 'B': B, 'C': C},
-                                     Q, R, self.horizon, opt)
+                                     Q, R, N, options)
 
         if self.recorder:
-            self.pub_tube = self.create_publisher(PolytopeMsg, "tube_set", 10)
+            self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
 
-        self.controller.initialize(self.mode, self.constraints)
-        self.controller.P = P
+        self.controller.initialize(self.mode, self.constraints, P=P)
 
         if self.recorder:
             self.tube_set = PolytopeMsg()
@@ -328,52 +331,65 @@ class Controller(Node):
             self.tube_set.b.array.append(tube_b)
             self.pub_tube.publish(self.tube_set)
 
-        ref_type = self.options["ref"] if self.options.get("ref") is not None else ""
-        if ref_type.lower() in ["trajectory", "traj"]:
+        ref_type = self.options['ref'] if self.options.get('ref') is not None else ''
+        if ref_type.lower() in ['trajectory', 'traj']:
             self.sub_ref = self.create_subscription(
-                VecArray, "trajectory", self.ref_callback, 10
+                VecArray, 'trajectory', self.ref_callback, 10
             )
         else:
             self.sub_ref = self.create_subscription(
-                Vec, "trajectory", self.ref_callback, 10
+                Pose2D, 'trajectory', self.ref_callback, 10 
             )
         self.ref = None
 
         self.sub_odom = self.create_subscription(
-            Odometry, "odom_ekf", self.odom_callback, 10
+            Odometry, 'odom_ekf', self.odom_callback, 10
         )
         self.curr_x = None
-        self.get_logger().info("initialization done !")
+        self.get_logger().info('initialization done !')
 
+        self.start = False
+        self.start_pub = self.create_publisher(Bool, 'cmd_done', 10)
         self.timer = self.create_timer(1 / 30, self.timer_callback)
 
-    def ref_callback(self, msg):
+    def ref_callback(self, msg: Pose2D):
         """Receive reference trajectory or setpoint."""
-        self.get_logger().info(f'{msg.__class__.__name__}')
-        if msg.__class__.__name__ == "VecArray":
-            self.get_logger().info("Received reference trajectory:")
-            self.ref = []
-            self.ref = np.array([vec.data for vec in msg.array]).reshape(-1, 1)
-        elif msg.__class__.__name__ == "Vec":
-            self.ref = msg.data
-        self.ref = np.array(self.ref).reshape((-1, 1))
+        # if msg.__class__.__name__ == 'VecArray':
+        #     self.get_logger().info('Received reference trajectory:')
+        #     self.ref = []
+        #     self.ref = np.array([vec.data for vec in msg.array]).reshape(-1, 1)
+        # elif msg.__class__.__name__ == 'Vec':
+        #     self.ref = msg.data
+
+        self.ref = [msg.x, msg.y, msg.theta]
+
+        # self.ref = list(np.array(self.ref).reshape((-1, 1)).flatten())
 
     def odom_callback(self, msg):
         """Receive current state from odometry."""
         # Calculate theta from quaternion
         theta = 2 * np.arctan2(msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
-        d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
+        # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
-        self.curr_x = np.array([d_theta, msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z])
+        self.curr_x = np.array([msg.pose.pose.position.x,
+                                msg.pose.pose.position.y, theta])
 
     def timer_callback(self):
         """Solve the MPC problem and send the command."""
-        if self.curr_x is not None:
-            self.controller.solve(self.curr_x, self.ref)
+        if not self.start:
+            start_msg = Bool()
+            start_msg.data = True
+            self.start_pub.publish(start_msg)
+        if self.curr_x is not None and self.ref is not None:
+            if self.flavor == 'RAMPC':
+                self.controller.solve(ca.DM(self.curr_x), ca.DM(self.curr_x), self.ref)
+            else:
+                self.controller.solve(self.curr_x, self.ref)
             msg = TwistStamped()
             if self.controller.u_star.shape[0] > 1 or self.controller.u_star.shape[1] > 1:
-                msg.twist.linear.x = float(self.controller.u_star[0])
-                msg.twist.angular.z = float(self.controller.u_star[1])
+                u = self.controller.u_star.toarray().flatten()
+                msg.twist.linear.x = float(u[0])
+                msg.twist.angular.z = float(u[1])
             else:
                 msg.twist.linear.x = float(self.controller.u_star)
             msg.header.stamp = self.get_clock().now().to_msg()
@@ -382,7 +398,8 @@ class Controller(Node):
                 self.last_idx = (self.controller.N+1) * self.controller.n
                 self.last_idx = self.last_idx + self.controller.m * self.controller.N
                 if self.controller.track:
-                    self.last_idx = self.last_idx + self.controller.m * self.controller.sym.ua.shape[1]
+                    self.last_idx = self.last_idx + self.controller.m \
+                        * self.controller.sym.ua.shape[1]
                 self.tube_set = PolytopeMsg()
                 tube_a = VecArray(array=[])
                 tube_b = Vec()
@@ -390,7 +407,7 @@ class Controller(Node):
                 tube_b.data = self.controller.V.b.tolist()
                 self.tube_set.a.array = tube_a.array
                 self.tube_set.b.array.append(tube_b)
-                alpha = self.controller.sol["x"][
+                alpha = self.controller.sol['x'][
                     self.last_idx
                     + self.controller.na: self.last_idx
                     + self.controller.na * (self.controller.N + 1)

@@ -13,7 +13,7 @@ def generate_launch_description():
     )
     flavor_arg = actions.DeclareLaunchArgument(
         "flavor",
-        default_value="RMPC",
+        default_value="RAMPC",
         description="Flavor of the controller - MPC, RMPC or RAMPC",
     )
     horizon_arg = actions.DeclareLaunchArgument(
@@ -58,85 +58,112 @@ def generate_launch_description():
         description="Flattened R matrix for the controller",
     )
     size_x_arg = actions.DeclareLaunchArgument(
-        "size_x", default_value="2", description="Size of the state vector"
+        "size_x", default_value="2",
+        description="Size of the state vector"
     )
     size_u_arg = actions.DeclareLaunchArgument(
-        "size_u", default_value="1", description="Size of the control vector"
+        "size_u", default_value="1",
+        description="Size of the control vector"
     )
     size_y_arg = actions.DeclareLaunchArgument(
-        "size_y", default_value="1", description="Size of the output vector"
+        "size_y", default_value="1",
+        description="Size of the output vector"
     )
     ts_arg = actions.DeclareLaunchArgument(
-        "Ts", default_value="0.", description="Sampling time for the controller, if 0, the system is considered continuous"
+        "Ts", default_value="0.",
+        description="Sampling time for the controller, if 0, the system is considered continuous"
     )
     relax_arg = actions.DeclareLaunchArgument(
-        "relax", default_value="", description="Whether to relax the constraints or not"
+        "relax", default_value="",
+        description="Whether to relax the constraints or not"
     )
     name_arg = actions.DeclareLaunchArgument(
-        "name", default_value="", description="Name of the controller, if empty, a random name will be generated"
+        "name", default_value="",
+        description="Name of the controller, if empty, a random name will be generated"
     )
     verbose_arg = actions.DeclareLaunchArgument(
-        "verbose", default_value='True', description="Whether to print verbose output or not"
+        "verbose", default_value='True',
+        description="Whether to print verbose output or not"
     )
     solver_arg = actions.DeclareLaunchArgument(
-        "solver", default_value="osqp", description="Solver to use for the controller, options are 'qpoases', 'osqp'"
+        "solver", default_value="osqp",
+        description="Solver to use for the controller, options are 'qpoases', 'osqp'"
     )
     lbx_arg = actions.DeclareLaunchArgument(
-        "lbx", default_value='[0.]', description="Lower bound on the state vector."
+        "lbx", default_value='[0.]',
+        description="Lower bound on the state vector."
     )
     ubx_arg = actions.DeclareLaunchArgument(
-        "ubx", default_value='[0.]', description="Upper bound on the state vector."
+        "ubx", default_value='[0.]',
+        description="Upper bound on the state vector."
     )
     lub_arg = actions.DeclareLaunchArgument(
-        "lub", default_value='[0.]', description="Lower bound on the control vector."
+        "lub", default_value='[0.]',
+        description="Lower bound on the control vector."
     )
     uub_arg = actions.DeclareLaunchArgument(
-        "uub", default_value='[0.]', description="Upper bound on the control vector."
+        "uub", default_value='[0.]',
+        description="Upper bound on the control vector."
     )
     lyb_arg = actions.DeclareLaunchArgument(
-        "lyb", default_value='[0.]', description="Lower bound on the output vector."
+        "lyb", default_value='[0.]',
+        description="Lower bound on the output vector."
     )
     uyb_arg = actions.DeclareLaunchArgument(
-        "uyb", default_value='[0.]', description="Upper bound on the output vector."
+        "uyb", default_value='[0.]',
+        description="Upper bound on the output vector."
     )
     svd_arg = actions.DeclareLaunchArgument(
-        "svd", default_value='False', description="Whether to use SVD for the controller or not"
+        "svd", default_value='False',
+        description="Whether to use SVD for the controller or not"
     )
     lam_arg = actions.DeclareLaunchArgument(
-        "lam", default_value='0.99', description="Lambda parameter for the controller."
+        "lam", default_value='0.99',
+        description="Lambda parameter for the controller."
     )
     lpv_flag_arg = actions.DeclareLaunchArgument(
-        "lpv_flag", default_value='False', description="Whether the system is LPV or not"
+        "lpv_flag", default_value='False',
+        description="Whether the system is LPV or not"
     )
     par_filter_arg = actions.DeclareLaunchArgument(
-        "par_filter", default_value='kf', description="Type of parameter filter to use, options are 'lms', 'rls', 'kalman', 'chebyshev'"
+        "par_filter", default_value='kf',
+        description="Type of parameter filter to use, options are 'lms', 'rls', 'kalman', 'chebyshev'"
     )
     nc_arg = actions.DeclareLaunchArgument(
-        "Nc", default_value='0', description="Control horizon for the controller, if 0, it is equal to the horizon"
+        "Nc", default_value='0',
+        description="Control horizon for the controller, if 0, it is equal to the horizon"
     )
     sigma_arg = actions.DeclareLaunchArgument(
-        "sigma", default_value='0.95', description="Sigma parameter for the controller, used for RMPC and RAMPC"
+        "sigma", default_value='0.95',
+        description="Sigma parameter for the controller, used for RMPC and RAMPC"
     )
     customJ_arg = actions.DeclareLaunchArgument(
-        "customJ", default_value="", description="Whether to use a custom cost function or not"
+        "customJ", default_value="",
+        description="Whether to use a custom cost function or not"
     )
     K_flat_arg = actions.DeclareLaunchArgument(
-        "K_flat", default_value='[0.0, 0.0]', description="Flattened K matrix for the controller"
+        "K_flat", default_value='[0.0, 0.0]',
+        description="Flattened K matrix for the controller"
+    )
+    ref_type_arg = actions.DeclareLaunchArgument(
+        "ref_type", default_value='ref',
+        description="Whether the reference is a point or a trajectory"
     )
 
-    robot_name = substitutions.LaunchConfiguration("robot_name")
-    flavor = substitutions.LaunchConfiguration("flavor")
-    horizon = substitutions.LaunchConfiguration("horizon")
-    mode = substitutions.LaunchConfiguration("mode")
-    recorder = substitutions.LaunchConfiguration("recorder")
-    A_flat = substitutions.LaunchConfiguration("A_flat")
-    B_flat = substitutions.LaunchConfiguration("B_flat")
-    C_flat = substitutions.LaunchConfiguration("C_flat")
-    Q_flat = substitutions.LaunchConfiguration("Q_flat")
-    R_flat = substitutions.LaunchConfiguration("R_flat")
-    size_x = substitutions.LaunchConfiguration("size_x")
-    size_u = substitutions.LaunchConfiguration("size_u")
-    size_y = substitutions.LaunchConfiguration("size_y")
+    robot_name = substitutions.LaunchConfiguration('robot_name')
+    flavor = substitutions.LaunchConfiguration('flavor')
+    horizon = substitutions.LaunchConfiguration('horizon')
+    mode = substitutions.LaunchConfiguration('mode')
+    recorder = substitutions.LaunchConfiguration('recorder')
+    A_flat = substitutions.LaunchConfiguration('A_flat')
+    B_flat = substitutions.LaunchConfiguration('B_flat')
+    C_flat = substitutions.LaunchConfiguration('C_flat')
+    Q_flat = substitutions.LaunchConfiguration('Q_flat')
+    R_flat = substitutions.LaunchConfiguration('R_flat')
+    size_x = substitutions.LaunchConfiguration('size_x')
+    size_u = substitutions.LaunchConfiguration('size_u')
+    size_y = substitutions.LaunchConfiguration('size_y')
+    ref_type = substitutions.LaunchConfiguration('ref_type')
 
     pkg_share = get_package_share_directory('cRAMPC')
     return LaunchDescription(
@@ -154,6 +181,7 @@ def generate_launch_description():
             size_x_arg,
             size_u_arg,
             size_y_arg,
+            ref_type_arg,
             Node(
                 namespace=robot_name,
                 package='bag_recorder_py',
@@ -175,23 +203,24 @@ def generate_launch_description():
             ),
             Node(
                 namespace=robot_name,
-                package="cRAMPC",
-                executable="controller",
-                name="controller",
-                output="screen",
+                package='cRAMPC',
+                executable='controller',
+                name='controller',
+                output='screen',
                 parameters=[
-                    {"flavor": flavor},
-                    {"horizon": horizon},
-                    {"mode": mode},
-                    {"recorder": recorder},
-                    {"A_flat": A_flat},
-                    {"B_flat": B_flat},
-                    {"C_flat": C_flat},
-                    {"Q_flat": Q_flat},
-                    {"R_flat": R_flat},
-                    {"size_x": size_x},
-                    {"size_u": size_u},
-                    {"size_y": 2},
+                    {'flavor': flavor},
+                    {'horizon': horizon},
+                    {'mode': mode},
+                    {'recorder': recorder},
+                    {'A_flat': A_flat},
+                    {'B_flat': B_flat},
+                    {'C_flat': C_flat},
+                    {'Q_flat': Q_flat},
+                    {'R_flat': R_flat},
+                    {'size_x': size_x},
+                    {'size_u': size_u},
+                    {'size_y': 2},
+                    {'ref_type': 'ref'}
                 ],
                 on_exit=launch.actions.Shutdown(),
             ),
@@ -205,17 +234,17 @@ def generate_launch_description():
             # ),
             Node(
                 namespace=robot_name,
-                package="cRAMPC",
-                executable="path_generator",
-                name="path_generator",
-                output="screen",
+                package='cRAMPC',
+                executable='path_generator',
+                name='path_generator',
+                output='screen',
                 parameters=[
                     {
-                        "traj_file": 'None'#"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle.csv"  #"/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv"
+                        'traj_file': "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle_pose.csv"
                     },
-                    {"ref_type": "ref"},
-                    {"ref_point": [0.006, 0.07]},
-                    {"odom_type": "velocity_orientation"},
+                    {'ref_type': 'ref'},
+                    {'ref_point': [0.0, 0.0, 0.0]},
+                    {'odom_type': 'position_orientation'},
                 ],
                 on_exit=actions.Shutdown(),
 

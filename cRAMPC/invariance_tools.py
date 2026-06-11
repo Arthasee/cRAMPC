@@ -16,27 +16,14 @@ class GainSynthesis:
         self._F_G = (Z_bnd.A/Z_bnd.b[:, np.newaxis]).copy()
 
         self._gain = K
-
-        self._state_weight = Q.copy() if Q is not None else np.eye(A.shape[0])
-        # TODO - Correctly compyte the P for each vertex, currently works only on with one vertex.
-
-        try:
-            self._terminal_weight = np.linalg.inv(
-                mat_pow(Q, 0.5) @ (np.eye(A.shape[0]) + B @ K) @ mat_pow(Q, -0.5)
-                ) if K is not None else None
-        except:
-            self._terminal_weight = Q.copy() * 100
-
-        input_bnd = Z_bnd.projection(list(range(A.shape[0]))).normalize()
-        self._input_weight = R.copy() if R is not None else np.eye(B.shape[1])/(np.max(input_bnd.b)**2)
-        
+    
         A = A.copy() 
-        if A.ndim < 2: 
-            A = A[:, np.newaxis].copy()
+        if A.ndim < 3: 
+            A = A[:, :, np.newaxis].copy()
         
         B = B.copy()
-        if B is not None and B.ndim < 2:
-            B = B[:, np.newaxis].copy()
+        if B is not None and B.ndim < 3:
+            B = B[:, :, np.newaxis].copy()
 
         self.transition_matrices = np.concatenate((A, B), axis=1) if B is not None else A.copy()
 
@@ -44,6 +31,24 @@ class GainSynthesis:
 
         self.n = A.shape[0]
         self.m = B.shape[1] if B is not None else 0
+
+
+        self._state_weight = Q.copy() if Q is not None else np.eye(self.n)
+        # TODO - Correctly compyte the P for each vertex, currently works only on with one vertex.
+
+        try:
+            self._terminal_weight = np.linalg.inv(
+                mat_pow(Q, 0.5) @ (np.eye(self.n) + B @ K) @ mat_pow(Q, -0.5)
+                ) if K is not None else None
+        except:
+            self._terminal_weight = Q.copy() * 100
+
+        self._input_weight = np.eye(self.m)
+
+        # if Z_bnd.dim > 0:
+        #     input_bnd = Z_bnd.projection(list(range(self.n))).normalize()
+        #     self._input_weight = R.copy() if R is not None else np.eye(self.m)/(np.max(input_bnd.b)**2)
+
 
         self._mode = mode
         self._lam = contraction_factor
@@ -110,7 +115,7 @@ class GainSynthesis:
 
         positive_definitivness = [x_mat >> tol * np.eye(self.n)]
 
-        lmis = contractivity + stability_at_vertices + constraint_satisfaction + noise_attenuation + positive_definitivness
+        lmis = contractivity + stability_at_vertices + positive_definitivness + constraint_satisfaction + noise_attenuation 
  
         j_cost = 0
         if self._mode == "volume":
@@ -137,7 +142,7 @@ class GainSynthesis:
 
         while not satisfied:
 
-            lmip.solve(solver="CLARABEL", verbose=True)
+            lmip.solve(solver="MOSEK", verbose=False)
             self._terminal_weight = np.linalg.inv(x_mat.value)
             self._gain = y_mat.value @ self._terminal_weight
             
@@ -249,7 +254,7 @@ class InvariantSet:
         
         return poly.projection(poly_axes) if len(poly_axes) > 0 else poly.copy()
 
-    def compute_invariant_set(self, max_iter = 1000):
+    def compute_invariant_set(self, max_iter = 1000, check_mode : bool = False):
         """
         Compute the invariant set by iteratively propagating the boundary of the set and taking the convex hull.
         Arguments:
@@ -279,14 +284,20 @@ class InvariantSet:
             next_poly = Polytope(A=np.vstack((prev_poly.A, maps)),
                                  b= np.concatenate((prev_poly.b, np.ones(maps.shape[0])*self._contractive_factor**k),0))
             
+            if check_mode and (k % 54 == 0):
+                ax,_,_ = next_poly.projection(2).plot(patch_args= {'facecolor' : 'red', 'alpha' : 0.8})
+                ax,_,_ = prev_poly.projection(2).plot(ax, {'facecolor' : 'green', 'alpha' : 0.8})
+                plt.show()
             next_poly.minimize_H_rep()
-            
-            if next_poly.contains(0.99*prev_poly):
+
+            if next_poly.contains(prev_poly):
+            # if next_poly == prev_poly:
+                prev_poly.minimize_H_rep()
                 print(f"Convergence reached after {k} iterations")
                 break
 
             prev_poly = next_poly.copy()
-        return self.project_on_axis(next_poly, self._state_axes)
+        return self.project_on_axis(prev_poly, self._state_axes)
 
 class myPolytope(Polytope):
     """

@@ -8,11 +8,9 @@ import time
 from pycvxset import Polytope
 
 from cRAMPC.cMPC import CMPC
-from cRAMPC.pagemtimes import pagemtimes
 
 from cRAMPC.invariance_tools import InvariantSet, GainSynthesis
 # from cMPC import CMPC
-# from pagemtimes import pagemtimes
 # from invariance_tools import InvariantSet, GainSynthesis
 
 
@@ -82,46 +80,7 @@ class CRMPC(CMPC):
             self.q, self.q_c, self.vertices_number, self.c_vertices_number, 1
         )
 
-        # Cached blocks used in solve() to reduce per-iteration allocations.
-        self._th_nominal = None
-        self._th_c_nominal = None
-        self._theta_vertices_flat = None
-        self._theta_c_vertices_flat = None
-        self._p_tail = None
-        self._alpha_idx = None
-        self._r_zeros = None
-        self._r_zeros_dm = None
-        self.new_lbg_dm = None
-        self.new_ubg_dm = None
-        self.last_solve_profile = None
-
         self.add_hard_constraints()
-
-    def _cache_solve_data(self):
-        """Cache constant data blocks used at every solve() call."""
-        self._th_nominal = np.block([[1], [np.zeros((self.q, 1))]])
-        self._th_c_nominal = np.block([[1], [np.zeros((self.q_c, 1))]])
-        self._theta_vertices_flat = self.theta_vertices.T.flatten()[:, np.newaxis]
-        self._theta_c_vertices_flat = self.theta_c_vertices.T.flatten()[:, np.newaxis]
-
-        self._p_tail = ca.DM(
-            np.vstack(
-                (
-                    self._th_nominal,
-                    self._th_c_nominal,
-                    self._theta_vertices_flat,
-                    self._theta_c_vertices_flat,
-                )
-            )
-        )
-
-        # x/u part offset in decision vector, same layout used in cMPC._warm_start.
-        idx = (self.N + 1) * self.n + self.m * self.N
-        if self.track:
-            idx += self.n * self.sym.xa.shape[1] + self.m * self.sym.ua.shape[1]
-        self._alpha_idx = idx
-        self._r_zeros = np.zeros(self.sym.r.shape)
-        self._r_zeros_dm = ca.DM(self._r_zeros)
 
     def _init_uncertainty_symbolic(self):
         """
@@ -319,7 +278,7 @@ class CRMPC(CMPC):
             ],
         )
 
-    def initialize(self, mode="None", constraints=None):
+    def initialize(self, mode="None", constraints=None, P=None):
         """
         Initializes the Offline components of the OCP.
 
@@ -366,7 +325,11 @@ class CRMPC(CMPC):
             self.gain_synth.synthesize_controller()
 
         self.K = self.gain_synth.get_gain()
-        self.P = self.gain_synth.get_terminal_weight()
+     
+        self.P = P
+
+        if P is None:
+            self.P = self.gain_synth.get_terminal_weight()
 
         #
         self.Ak = self.sys.A + np.einsum("ijk,jl->ilk", self.sys.B, self.K)
@@ -400,7 +363,7 @@ class CRMPC(CMPC):
         #     b=np.ones(self.poly_x_aug.b.shape)
         #     )
 
-        self.V = invariant_set.compute_invariant_set()
+        self.V = invariant_set.compute_invariant_set(check_mode = True)
 
         self.na = self.V.A.shape[0]
         self.V = Polytope(A = self.V.A/self.V.b[:, np.newaxis], b = np.ones(self.na))
@@ -418,62 +381,54 @@ class CRMPC(CMPC):
         self._system_build()
         options = {}
         self._set_controller(options)
-        self._cache_solve_data()
 
     def solve(self, x0, r=None):
-        t_total_0 = time.perf_counter()
-        t_warm = 0.0
-
-        x0_dm = x0 if isinstance(x0, ca.DM) else ca.DM(x0)
-
         if r is None:
-            r_dm = self._r_zeros_dm
-        else:
-            r_dm = r if isinstance(r, ca.DM) else ca.DM(r)
-
-        t_param_0 = time.perf_counter()
-        p_val = ca.vertcat(x0_dm, r_dm, self._p_tail)
-        t_param = time.perf_counter() - t_param_0
-
-        t_qp_0 = time.perf_counter()
+            r = np.zeros(self.sym.r.shape)
+        new_lbg = []
+        new_ubg = []
+        for i, val in enumerate(self.lbg):
+            new_lbg = np.concatenate((new_lbg, val))
+            new_ubg = np.concatenate((new_ubg, self.ubg[i]))
+        th = np.block([[1], [np.zeros((self.q, 1))]])
+        th_c = np.block([[1], [np.zeros((self.q_c, 1))]])
         if self.first_time:
             self.sol = self.qpsol(
-                p=p_val,
-                lbg=self.new_lbg_dm,
-                ubg=self.new_ubg_dm,
+                p=ca.vertcat(
+                    x0,
+                    r,
+                    th,
+                    th_c,
+                    self.theta_vertices.T.flatten()[:, np.newaxis],
+                    self.theta_c_vertices.T.flatten()[:, np.newaxis],
+                ),
+                lbg=new_lbg,
+                ubg=new_ubg,
             )
             self.first_time=False
         else:
-            t_warm_0 = time.perf_counter()
             x_warm, _ = self._warm_start()
-            t_warm = time.perf_counter() - t_warm_0
             self.sol = self.qpsol(
-                p=p_val,
-                lbg=self.new_lbg_dm,
-                ubg=self.new_ubg_dm,
+                p=ca.vertcat(
+                    x0,
+                    r,
+                    th,
+                    th_c,
+                    self.theta_vertices.T.flatten()[:, np.newaxis],
+                    self.theta_c_vertices.T.flatten()[:, np.newaxis],
+                ),
+                lbg=new_lbg,
+                ubg=new_ubg,
                 x0=x_warm,
             )
-        t_qp = time.perf_counter() - t_qp_0
 
-        t_post_0 = time.perf_counter()
         self.u_star = self.sol["x"][
             (self.N + 1) * self.n : (self.N + 1) * self.n + self.m
         ]
 
-        self.alpha_0 = self.sol["x"][
-            self._alpha_idx : self._alpha_idx + self.na
-        ].toarray().copy()
+        _, alpha_idx = super()._warm_start()
 
-        t_post = time.perf_counter() - t_post_0
-        qp_stats = self.qpsol.stats()
-        self.last_solve_profile = {
-            "total_s": time.perf_counter() - t_total_0,
-            "warm_start_s": t_warm,
-            "param_build_s": t_param,
-            "qpsol_call_s": t_qp,
-            "post_s": t_post,
-            "qpsol_stats_total_s": qp_stats.get("t_wall_total", 0.0),
-        }
+        self.alpha_0 = self.sol["x"][alpha_idx: alpha_idx + self.na].toarray().copy()
 
         # self._warm_start()
 
@@ -494,7 +449,6 @@ class CRMPC(CMPC):
         casadi.DM or casadi.MX with shape (na*n,vertices_number)
 
         """
-        
         H_eval = ca.Function(
             "H_eval",
             [self.sym.th_vertices],
@@ -575,57 +529,46 @@ class CRMPC(CMPC):
             ],
         )
 
-        # --- Fix 1: evaluate vertex-dependent matrices at the fixed vertex values
-        #            once during graph build → pure ca.DM constants, zero symbolic nodes.
-        #     Fix 2: replace per-vertex list comprehension with a single batched
-        #            (stacked-DM @ MX) matrix expression → avoids duplicated sub-graphs.
-        _th_v_dm   = ca.DM(self.theta_vertices.T.flatten()[:, np.newaxis])
-        _th_c_v_dm = ca.DM(self.theta_c_vertices.T.flatten()[:, np.newaxis])
-        _H_np  = H_eval(_th_v_dm).toarray()                 # (na*na, V)
-        _HC_np = HC_eval(_th_c_v_dm).toarray()              # (nf*na, c_V)
-        _Ak_np = self.Ak_th_v_eval(_th_v_dm).toarray()     # (n*n,   V)
-        _B_np  = self.B_th_v_eval(_th_v_dm).toarray()      # (n*m,   V)
-
-        _V,  _Vc = self.vertices_number, self.c_vertices_number
-        _na, _n, _m = self.na, self.n, self.m
-        _nf = matGb.shape[0]
-
-        # CasADi reshape is column-major; ca.reshape(col, r, c).T  ==  np.reshape(col, (r, c)).
-        # Stack H_v  = _H_np[:,v].reshape(na,na)         → (_V*na, na)
-        _H_stacked   = ca.DM(np.vstack([_H_np[:, v].reshape(_na, _na)
-                                         for v in range(_V)]))
-        # V.A @ Ak_v                                     → (_V*na, n)
-        _VAk_stacked = ca.DM(np.vstack([self.V.A @ _Ak_np[:, v].reshape(_n, _n)
-                                         for v in range(_V)]))
-        # V.A @ B_v  (B_v shape n×m)                    → (_V*na, m)
-        _VB_stacked  = ca.DM(np.vstack([self.V.A @ _B_np[:, v].reshape(_n, _m)
-                                         for v in range(_V)]))
-        _VA_tiled    = ca.DM(np.tile(self.V.A, (_V, 1)))    # (_V*na, n)
-        _wbar_tiled  = ca.DM(np.tile(self.w_bar, (_V, 1)))  # (_V*na, 1)
-
-        # HC_v = _HC_np[:,v].reshape(nf,na)              → (_Vc*nf, na)
-        _HC_stacked  = ca.DM(np.vstack([_HC_np[:, v].reshape(_nf, _na)
-                                         for v in range(_Vc)]))
-        _Gb_tiled    = ca.DM(np.tile(matGb, (_Vc, 1)))      # (_Vc*nf, m)
-        _ones_tiled  = ca.DM(np.ones((_Vc * _nf, 1)))       # (_Vc*nf, 1)
-
         tubeStep = ca.Function(
             "tubeStep",
-            [self.sym.get_c(), _xa_next, _xa, _alpha, _alpha_next],
-            [_H_stacked   @ _alpha
-             + _VA_tiled  @ _xa_next
-             - _VAk_stacked @ _xa
-             + _VB_stacked  @ self.sym.get_c()
-             + _wbar_tiled
-             - ca.repmat(_alpha_next, _V, 1)],
+            [
+                self.sym.th_vertices,
+                self.sym.get_c(),
+                _xa_next,
+                _xa,
+                _alpha,
+                _alpha_next,
+            ],
+            [
+                ca.reshape(H_eval(self.sym.th_vertices)[:, v], -1, self.na).T @ _alpha
+                + self.V.A
+                @ (
+                    _xa_next
+                    - ca.reshape(
+                        self.Ak_th_v_eval(self.sym.th_vertices)[:, v], -1, self.n
+                    ).T
+                    @ _xa
+                    + ca.reshape(
+                        self.B_th_v_eval(self.sym.th_vertices)[:, v], -1, self.n
+                    ).T
+                    @ self.sym.get_c()
+                )
+                + self.w_bar
+                - _alpha_next
+                for v in range(self.vertices_number)
+            ],
         )
 
         tightStep = ca.Function(
             "tightStep",
-            [self.sym.get_u(), _xa, _ua, _alpha],
-            [_HC_stacked @ _alpha
-             + _Gb_tiled @ (linear_k(_xa) + self.sym.get_u() + _ua)
-             - _ones_tiled],
+            [self.sym.th_c_vertices, self.sym.get_u(), _xa, _ua, _alpha],
+            [
+                ca.reshape(HC_eval(self.sym.th_c_vertices)[:, v], self.na, -1).T
+                @ _alpha
+                + matGb @ (linear_k(_xa) + self.sym.get_u() + _ua)
+                - np.ones((matGb.shape[0], 1))
+                for v in range(self.c_vertices_number)
+            ],
         )
 
         artificial_idx = (
@@ -669,6 +612,7 @@ class CRMPC(CMPC):
         )
 
         tightConstraint = tightStep.map(self.N)(
+            self.sym.th_c_vertices_N,
             self.c,
             self.sym.xa[:, artificial_idx[0]],
             self.sym.ua,
@@ -676,7 +620,8 @@ class CRMPC(CMPC):
         )
 
         terminalConstraint = tightStep(
-            ca.DM.zeros(self.m, 1),
+            self.sym.th_c_vertices_N[:, -1],
+            np.zeros((self.m, 1)),
             self.sym.xa[:, -1],
             self.sym.ua[:, -1],
             self.alpha[:, -1],
@@ -684,6 +629,7 @@ class CRMPC(CMPC):
 
         if self.sym.r.shape[1] > 1:
             tubeDyn = tubeStep.map(self.N)(
+                self.sym.th_vertices_N,
                 self.c,
                 self.sym.xa[:, artificial_idx[1]],
                 self.sym.xa[:, artificial_idx[0]],
@@ -703,6 +649,7 @@ class CRMPC(CMPC):
 
         else:
             tubeDyn = tubeStep.map(self.N)(
+                self.sym.th_vertices_N,
                 self.c,
                 self.sym.xa,
                 self.sym.xa,
@@ -711,7 +658,8 @@ class CRMPC(CMPC):
             )
 
         terminalTube = tubeStep(
-            ca.DM.zeros(self.m, 1),
+            self.sym.th_vertices_N[:, -1],
+            np.zeros((self.m, 1)),
             self.sym.xa[:, -1],
             self.sym.xa[:, -1],
             self.alpha[:, -1],
@@ -750,22 +698,32 @@ class CRMPC(CMPC):
         self.lbg.append([-ca.inf] * (len(self.V.b)))
         self.ubg.append([0.0] * (len(self.V.b)))
 
-        self.g.append(ca.reshape(tubeDyn, -1, 1))
-        self.lbg.append([-ca.inf] * (_V * self.na * self.N))
-        self.ubg.append([0.0] * (_V * self.na * self.N))
+        for tubeVertex in tubeDyn:
+            self.g.append(ca.reshape(tubeVertex, 1, -1).T)
+            self.lbg.append([-ca.inf] * (self.na * self.N))
+            self.ubg.append([0.0] * (self.na * self.N))
 
         if self.track:
-            self.g.append(ca.reshape(terminalTube, -1, 1))
-            self.lbg.append([-ca.inf] * (_V * self.na))
-            self.ubg.append([0.0] * (_V * self.na))
+            for tubeVertex in terminalTube:
+                self.g.append(ca.reshape(tubeVertex, 1, -1).T)
+                self.lbg.append([-ca.inf] * (self.na))
+                self.ubg.append([0.0] * (self.na))
 
-        self.g.append(ca.reshape(tightConstraint, -1, 1))
-        self.lbg.append([-ca.inf] * (_Vc * _nf * self.N))
-        self.ubg.append([0.0] * (_Vc * _nf * self.N))
+        if not isinstance(tightConstraint, tuple):
+            tightConstraint = (tightConstraint,)
 
-        self.g.append(ca.reshape(terminalConstraint, -1, 1))
-        self.lbg.append([-ca.inf] * (_Vc * _nf))
-        self.ubg.append([0.0] * (_Vc * _nf))
+        for constraintVertex in tightConstraint:
+            self.g.append(ca.reshape(constraintVertex, 1, -1).T)
+            self.lbg.append([-ca.inf] * (matGb.shape[0] * self.N))
+            self.ubg.append([0.0] * (matGb.shape[0] * self.N))
+
+        if not isinstance(terminalConstraint, tuple):
+            terminalConstraint = (terminalConstraint,)
+
+        for constraintVertex in terminalConstraint:
+            self.g.append(ca.reshape(constraintVertex, 1, -1).T)
+            self.lbg.append([-ca.inf] * (matGb.shape[0]))
+            self.ubg.append([0.0] * (matGb.shape[0]))
 
     def _set_controller(self, options=None):
         if options is None:
@@ -775,7 +733,6 @@ class CRMPC(CMPC):
         options["osqp"] = {
             'verbose': False,
             'max_iter': 1000,
-            # 'warm_starting': True,
             'polish': False
             }
         options['jit'] = True
@@ -805,10 +762,8 @@ class CRMPC(CMPC):
         #     decision_vars = ca.vertcat(decision_vars, ca.reshape(self.nu, -1, 1))
         new_g = ca.MX()
         for val in self.g:
-            # print(val)
             if isinstance(val, list):
                 for vval in val:
-                    # print(vval)
                     new_g = ca.vertcat(new_g, vval)
             else:
                 new_g = ca.vertcat(new_g, val.reshape((-1, 1)))
@@ -840,11 +795,8 @@ class CRMPC(CMPC):
             lbg=new_lbg,
             ubg=new_ubg,)
         
-        self.new_lbg = new_lbg.copy()
-        self.new_ubg = new_ubg.copy()
-        self.new_lbg_dm = ca.DM(self.new_lbg)
-        self.new_ubg_dm = ca.DM(self.new_ubg)
-
+        self.new_lbg_dm = ca.DM(new_lbg.copy())
+        self.new_ubg_dm = ca.DM(new_ubg.copy())
 
 
     def _tight_constraints(self):
