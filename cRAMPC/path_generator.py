@@ -28,7 +28,7 @@ class PathGenerator(Node):
 
         self.horizon = self.get_parameter('horizon').get_parameter_value().integer_value
 
-        self.declare_parameter('initial_position', [2.0, 3.0, 0.0])
+        self.declare_parameter('initial_position', [0.0, 0.0, 0.0])
 
         self.declare_parameter('odom_type', 'full')
         self.odom_type = self.get_parameter('odom_type').get_parameter_value().string_value
@@ -122,7 +122,7 @@ class PathGenerator(Node):
                 out_msg.y = self.path[1][self.last_index]
                 out_msg.theta = self.path[2][self.last_index]
                 self.path_pub.publish(out_msg)
-                self.last_index = (self.last_index + 1)
+                self.last_index = (self.last_index + 3)
 
 
 
