@@ -18,6 +18,8 @@ import numpy as np
 
 import casadi as ca
 
+import csv
+
 
 from pycvxset import Polytope
 from pycvxset import common as cpy
@@ -212,6 +214,7 @@ class Controller(Node):
 
         self.constraints = None
         self.E = None
+        self.path = None
 
         if not self.K.any():
             self.K = None
@@ -239,6 +242,7 @@ class Controller(Node):
             'name': self.name,
             'ref': self.ref_type,
         }
+        self.last_index = 0
 
         self.last_theta = 0.0
 
@@ -317,6 +321,9 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
+        self.file_path = "/home/turtle/ros2_ws/src/cRAMPC/config/trajectory_pentagon_pose.csv"
+        self.curr_x = [0., 0., 0.]
+        self.load_trajectory_from_file()
 
         self.controller.initialize(self.mode, self.constraints, P=P)
 
@@ -345,10 +352,9 @@ class Controller(Node):
         self.sub_odom = self.create_subscription(
             Odometry, 'odom_ekf', self.odom_callback, 10
         )
-        self.curr_x = None
         self.get_logger().info('initialization done !')
 
-        self.start = False
+        self.start = True
         self.start_pub = self.create_publisher(Bool, 'cmd_done', 10)
         self.timer = self.create_timer(1 / 30, self.timer_callback)
 
@@ -361,7 +367,8 @@ class Controller(Node):
         # elif msg.__class__.__name__ == 'Vec':
         #     self.ref = msg.data
 
-        self.ref = [msg.x, msg.y, msg.theta]
+        # self.ref = [msg.x, msg.y, msg.theta]
+        pass
 
         # self.ref = list(np.array(self.ref).reshape((-1, 1)).flatten())
 
@@ -374,13 +381,36 @@ class Controller(Node):
         self.curr_x = np.array([msg.pose.pose.position.x,
                                 msg.pose.pose.position.y, theta])
 
+    def load_trajectory_from_file(self):
+        """Load the trajectory from a file."""
+
+        if self.file_path == 'None':
+            print('No trajectory file provided. Sending to default goal.')
+        else:
+
+            if self.path is None:
+                self.path = [[],[],[]]
+
+            with open(self.file_path, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    self.path[0].append(float(row['x']) + self.curr_x[0])
+                    self.path[1].append(float(row['y']) + self.curr_x[1])
+                    self.path[2].append(float(row['theta']) + self.curr_x[2])
+
     def timer_callback(self):
         """Solve the MPC problem and send the command."""
         if not self.start:
             start_msg = Bool()
             start_msg.data = True
             self.start_pub.publish(start_msg)
-        if self.curr_x is not None and self.ref is not None:
+        if self.start:
+            out_msg = Pose2D()
+            out_msg.x = self.path[0][self.last_index]
+            out_msg.y = self.path[1][self.last_index]
+            out_msg.theta = self.path[2][self.last_index]
+            self.ref = [out_msg.x, out_msg.y, out_msg.theta]
+            self.last_index = (self.last_index + 1)
             if self.flavor == 'RAMPC':
                 self.controller.solve(ca.DM(self.curr_x), ca.DM(self.curr_x), self.ref)
             else:

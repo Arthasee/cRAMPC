@@ -201,53 +201,53 @@ def generate_launch_description():
             #         ('odometry/filtered', 'odom_ekf'),
             #     ],
             # ),
-            # Node(
-            #     namespace=robot_name,
-            #     package='cRAMPC',
-            #     executable='controller',
-            #     name='controller',
-            #     output='screen',
-            #     parameters=[
-            #         {'flavor': flavor},
-            #         {'horizon': horizon},
-            #         {'mode': mode},
-            #         {'recorder': recorder},
-            #         {'A_flat': A_flat},
-            #         {'B_flat': B_flat},
-            #         {'C_flat': C_flat},
-            #         {'Q_flat': Q_flat},
-            #         {'R_flat': R_flat},
-            #         {'size_x': size_x},
-            #         {'size_u': size_u},
-            #         {'size_y': 2},
-            #         {'ref_type': 'ref'}
-            #     ],
-            #     on_exit=launch.actions.Shutdown(),
-            # ),
-            # Node(
-            #     namespace=robot_name,
-            #     package="cRAMPC",
-            #     executable="prop",
-            #     name='prop',
-            #     output='screen',
-            #     on_exit=launch.actions.Shutdown(),
-            # ),
             Node(
                 namespace=robot_name,
                 package='cRAMPC',
-                executable='path_generator',
-                name='path_generator',
+                executable='controller',
+                name='controller',
                 output='screen',
                 parameters=[
-                    {
-                        'traj_file': "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle_pose.csv"
-                    },
-                    {'ref_type': 'ref'},
-                    {'ref_point': [0.0, 0.0, 0.0]},
-                    {'odom_type': 'position_orientation'},
+                    {'flavor': flavor},
+                    {'horizon': horizon},
+                    {'mode': mode},
+                    {'recorder': recorder},
+                    {'A_flat': A_flat},
+                    {'B_flat': B_flat},
+                    {'C_flat': C_flat},
+                    {'Q_flat': Q_flat},
+                    {'R_flat': R_flat},
+                    {'size_x': size_x},
+                    {'size_u': size_u},
+                    {'size_y': 2},
+                    {'ref_type': 'ref'}
                 ],
-                on_exit=actions.Shutdown(),
-
+                on_exit=launch.actions.Shutdown(),
             ),
+            Node(
+                namespace=robot_name,
+                package="cRAMPC",
+                executable="prop",
+                name='prop',
+                output='screen',
+                on_exit=launch.actions.Shutdown(),
+            ),
+            # Node(
+            #     namespace=robot_name,
+            #     package='cRAMPC',
+            #     executable='path_generator',
+            #     name='path_generator',
+            #     output='screen',
+            #     parameters=[
+            #         {
+            #             'traj_file': "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle_pose.csv"
+            #         },
+            #         {'ref_type': 'ref'},
+            #         {'ref_point': [0.0, 0.0, 0.0]},
+            #         {'odom_type': 'position_orientation'},
+            #     ],
+            #     on_exit=actions.Shutdown(),
+
+            # ),
         ]
     )

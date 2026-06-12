@@ -12,7 +12,7 @@ class PropagationNode(Node):
     def __init__(self):
         super().__init__('prop')
 
-        self.pos = np.array([[0.0], [0.0], [0.1]])
+        self.pos = np.array([[0.0], [0.0], [0.0]])
 
         # A0 = np.array([[0.5, 0.2], [-0.1, 0.6]])
         # dA1 = np.array([[0.042, 0.], [0.072, 0.03]])
