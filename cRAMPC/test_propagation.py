@@ -36,10 +36,10 @@ class PropagationNode(Node):
         C = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
         self.C = C.transpose(1,2,0).copy()
 
-        self.pub_odom = self.create_publisher(Odometry, 'odom_ekf', 10)
+        self.pub_odom = self.create_publisher(Odometry, 'odom', 10)
         self.sub_cmd = self.create_subscription(TwistStamped, 'cmd_vel', self.cmd_callback, 10)
         odom_msg = Odometry()
-        odom_msg.pose.pose.orientation.w = 1.
+        # odom_msg.pose.pose.orientation.w = 1.
         odom_msg.pose.pose.position.x = self.pos[0,0]
         odom_msg.pose.pose.position.y = self.pos[1,0]
         odom_msg.pose.pose.orientation.z = self.pos[2,0]

@@ -23,7 +23,7 @@ import os
 import numpy as np
 
 
-DEFAULT_RADIUS     = 1.0    # circle radius [m]
+DEFAULT_RADIUS     = 2.0    # circle radius [m]
 DEFAULT_V_MAX      = 0.46   # max forward velocity [m/s]
 DEFAULT_LAPS       = 1      # number of full laps
 DEFAULT_FREQ       = 30     # sampling frequency [Hz]
@@ -125,7 +125,7 @@ def main(args=None):
         ramp_steps=parsed.ramp_steps,
         output=parsed.output,
     )
-    circle_angle = np.arange(0, 2*np.pi, 2*np.pi/(20*30))
+    circle_angle = np.arange(0, 2*np.pi, 2*np.pi/(40*15))
     circle_pose = np.array([[np.cos(a)-1, np.sin(a), a-np.pi/2] for a in circle_angle])
     output = os.path.normpath(DEFAULT_OUTPUT)
     with open(output, 'w', newline='') as f:

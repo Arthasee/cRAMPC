@@ -69,7 +69,7 @@ class Options:
 
         Args:
             sym (Symbolic): the symbolic class
-            n (int): nuòber of states
+            n (int): number of states
             m (int): number of inputs
             p (int): number of outputs
             N (int): horizons

@@ -612,7 +612,7 @@ class CRMPC(CMPC):
         )
 
         tightConstraint = tightStep.map(self.N)(
-            self.sym.th_c_vertices_N,
+            self.sym.th_c_vertices_N[:, :-1],
             self.c,
             self.sym.xa[:, artificial_idx[0]],
             self.sym.ua,
@@ -629,7 +629,7 @@ class CRMPC(CMPC):
 
         if self.sym.r.shape[1] > 1:
             tubeDyn = tubeStep.map(self.N)(
-                self.sym.th_vertices_N,
+                self.sym.th_vertices_N[:, :-1],
                 self.c,
                 self.sym.xa[:, artificial_idx[1]],
                 self.sym.xa[:, artificial_idx[0]],
@@ -649,7 +649,7 @@ class CRMPC(CMPC):
 
         else:
             tubeDyn = tubeStep.map(self.N)(
-                self.sym.th_vertices_N,
+                self.sym.th_vertices_N[:, :-1],
                 self.c,
                 self.sym.xa,
                 self.sym.xa,
@@ -783,7 +783,7 @@ class CRMPC(CMPC):
                 self.sym.x_init,
                 ca.reshape(self.sym.r, (1, -1)).T,
                 ca.reshape(self.sym.th, (1, -1)).T, # TODO - ca.reshape(self.sym.th_N, (1, -1)).T,
-                ca.reshape(self.sym.th_c_N, (1, -1)).T,
+                ca.reshape(self.sym.th_c, (1, -1)).T,
                 ca.reshape(self.sym.th_vertices_N, (1, -1)).T,
                 ca.reshape(self.sym.th_c_vertices_N, (1, -1)).T,
             ),

@@ -284,7 +284,7 @@ class Controller(Node):
             "verbose": True,
             "svd": False,
             'xBound':(-np.array([10, 5, 1e4]), np.array([10, 5, 1e4])),
-            'uBound':(-np.array([0.46, 1.90]), np.array([0.46, 1.90])),
+            'uBound':(-np.array([0.3, 1.60]), np.array([0.3, 1.60])),
             "name": "turtle_controller",
             'W': W,
             'E': E,
@@ -321,7 +321,7 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
-        self.file_path = "/home/turtle/ros2_ws/src/cRAMPC/config/trajectory_pentagon_pose.csv"
+        self.file_path = "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_harmonic_pose.csv"
         self.curr_x = [0., 0., 0.]
         self.load_trajectory_from_file()
 
@@ -350,13 +350,14 @@ class Controller(Node):
         self.ref = None
 
         self.sub_odom = self.create_subscription(
-            Odometry, 'odom_ekf', self.odom_callback, 10
+            Odometry, 'odom', self.odom_callback, 10
         )
         self.get_logger().info('initialization done !')
 
         self.start = True
         self.start_pub = self.create_publisher(Bool, 'cmd_done', 10)
         self.timer = self.create_timer(1 / 30, self.timer_callback)
+        self.timer2 = self.create_timer(1.0/15, self.callback_timer2)
 
     def ref_callback(self, msg: Pose2D):
         """Receive reference trajectory or setpoint."""
@@ -379,7 +380,7 @@ class Controller(Node):
         # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
         self.curr_x = np.array([msg.pose.pose.position.x,
-                                msg.pose.pose.position.y, theta])
+                                msg.pose.pose.position.y, msg.pose.pose.orientation.z])
 
     def load_trajectory_from_file(self):
         """Load the trajectory from a file."""
@@ -394,13 +395,16 @@ class Controller(Node):
             with open(self.file_path, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    self.path[0].append(float(row['x']) + self.curr_x[0])
-                    self.path[1].append(float(row['y']) + self.curr_x[1])
+                    self.path[0].append(0.5*float(row['x']) + self.curr_x[0])
+                    self.path[1].append(0.5*float(row['y']) + self.curr_x[1])
                     self.path[2].append(float(row['theta']) + self.curr_x[2])
+
+    def callback_timer2(self):
+        self.last_index = (self.last_index + 1)
 
     def timer_callback(self):
         """Solve the MPC problem and send the command."""
-        if not self.start:
+        if self.start:
             start_msg = Bool()
             start_msg.data = True
             self.start_pub.publish(start_msg)
@@ -408,20 +412,31 @@ class Controller(Node):
             out_msg = Pose2D()
             out_msg.x = self.path[0][self.last_index]
             out_msg.y = self.path[1][self.last_index]
-            out_msg.theta = self.path[2][self.last_index]
+            out_msg.theta = self.path[2][self.last_index]  #np.atan2(out_msg.y - self.curr_x[1], out_msg.x - self.curr_x[0])  # self.path[2][self.last_index]  #
             self.ref = [out_msg.x, out_msg.y, out_msg.theta]
-            self.last_index = (self.last_index + 1)
+            # if np.linalg.norm(np.array(self.curr_x[:2]) - np.array(self.ref[:2])) <= 0.1:
+            #     self.last_index = (self.last_index + 1)
             if self.flavor == 'RAMPC':
-                self.controller.solve(ca.DM(self.curr_x), ca.DM(self.curr_x), self.ref)
+                self.controller.solve(ca.DM(self.curr_x), ca.DM(self.curr_x), self.ref)  # [0.5, 0.0, 3.14/4]
             else:
                 self.controller.solve(self.curr_x, self.ref)
             msg = TwistStamped()
+            MIN_LIN_VEL = 0.07   # TurtleBot minimum linear velocity deadband [m/s]
+            MIN_ANG_VEL = 0.07   # TurtleBot minimum angular velocity deadband [rad/s]
             if self.controller.u_star.shape[0] > 1 or self.controller.u_star.shape[1] > 1:
                 u = self.controller.u_star.toarray().flatten()
+                print(u)
+                # if 0.0 < abs(u[0]) < MIN_LIN_VEL:
+                #     u[0] = np.sign(u[0]) * MIN_LIN_VEL
+                # if 0.0 < abs(u[1]) < MIN_ANG_VEL:
+                #     u[1] = np.sign(u[1]) * MIN_ANG_VEL
                 msg.twist.linear.x = float(u[0])
                 msg.twist.angular.z = float(u[1])
             else:
-                msg.twist.linear.x = float(self.controller.u_star)
+                u0 = float(self.controller.u_star)
+                if 0.0 < abs(u0) < MIN_LIN_VEL:
+                    u0 = np.sign(u0) * MIN_LIN_VEL
+                msg.twist.linear.x = u0
             msg.header.stamp = self.get_clock().now().to_msg()
             if self.recorder:
                 # TODO - clean this and add alpha variation

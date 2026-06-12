@@ -3,10 +3,10 @@ import math
 from pathlib import Path
 
 FS = 30.0
-DURATION = 20.0
+DURATION = 10.0
 N = int(FS * DURATION)
 
-CONFIG_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 PENTAGON_CSV = CONFIG_DIR / "trajectory_pentagon_pose.csv"
 HARMONIC_CSV = CONFIG_DIR / "trajectory_harmonic_pose.csv"
 
@@ -18,7 +18,7 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def regular_pentagon_vertices(radius=1.0, cx=0.0, cy=0.0):
+def regular_pentagon_vertices(radius=2.0, cx=0.0, cy=0.0):
     start = -math.pi / 2
     return [
         (
@@ -30,7 +30,7 @@ def regular_pentagon_vertices(radius=1.0, cx=0.0, cy=0.0):
 
 
 def generate_pentagon():
-    v = regular_pentagon_vertices(radius=1.0)
+    v = regular_pentagon_vertices(radius=2.0)
     rows = []
 
     for i in range(N):
@@ -53,8 +53,8 @@ def generate_pentagon():
 def generate_harmonic():
     # Trajectoire plane lisse basée sur sin(sin(.))
     # x suit une progression régulière, y oscille selon sin(sin(.))
-    A = 0.5
-    x_speed = 0.1  # unités/s
+    A = 1.0
+    x_speed = 0.3  # unités/s
     w = 2.0 * math.pi / DURATION
 
     rows = []
