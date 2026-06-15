@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped
 
 
 class PropagationNode(Node):
@@ -36,13 +36,13 @@ class PropagationNode(Node):
         C = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
         self.C = C.transpose(1,2,0).copy()
 
-        self.pub_odom = self.create_publisher(Odometry, 'odom', 10)
+        self.pub_odom = self.create_publisher(PoseStamped, 'donatello/donatello', 10)
         self.sub_cmd = self.create_subscription(TwistStamped, 'cmd_vel', self.cmd_callback, 10)
-        odom_msg = Odometry()
-        # odom_msg.pose.pose.orientation.w = 1.
-        odom_msg.pose.pose.position.x = self.pos[0,0]
-        odom_msg.pose.pose.position.y = self.pos[1,0]
-        odom_msg.pose.pose.orientation.z = self.pos[2,0]
+        odom_msg = PoseStamped()
+        odom_msg.pose.orientation.w = 1.
+        odom_msg.pose.position.x = self.pos[0,0]
+        odom_msg.pose.position.y = self.pos[1,0]
+        odom_msg.pose.orientation.z = self.pos[2,0]
         self.pub_odom.publish(odom_msg)
 
     def cmd_callback(self, msg):
@@ -52,11 +52,11 @@ class PropagationNode(Node):
                        self.A.transpose(2, 0, 1) @ self.pos
                        + self.B.transpose(2, 0, 1) @ u)
         # self.pos = np.eye(2) @ self.pos + np.array([[1.], [1.]]) * msg.twist.linear.x
-        odom_msg = Odometry()
-        odom_msg.pose.pose.orientation.w = 1.
-        odom_msg.pose.pose.position.x = self.pos[0,0]
-        odom_msg.pose.pose.position.y = self.pos[1,0]
-        odom_msg.pose.pose.orientation.z = self.pos[2,0]
+        odom_msg = PoseStamped()
+        odom_msg.pose.orientation.w = 1.
+        odom_msg.pose.position.x = self.pos[0,0]
+        odom_msg.pose.position.y = self.pos[1,0]
+        odom_msg.pose.orientation.z = self.pos[2,0]
         self.pub_odom.publish(odom_msg)
 
 

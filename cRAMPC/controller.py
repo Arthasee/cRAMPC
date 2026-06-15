@@ -6,7 +6,7 @@ from cRAMPC.cMPC import CMPC
 from cRAMPC.cRAMPC import CRAMPC
 from cRAMPC.cRMPC import CRMPC
 
-from geometry_msgs.msg import TwistStamped, Pose2D
+from geometry_msgs.msg import TwistStamped, Pose2D, PoseStamped
 
 from inter_crampc.msg import PolytopeMsg, Vec, VecArray
 
@@ -32,6 +32,37 @@ if constants.DEFAULT_LP_SOLVER_STR == 'MOSEK':
 
 import rclpy
 from rclpy.node import Node
+
+
+class AngleTracker:
+    def __init__(self):
+        self.total_angle = 0.0
+        self.last_angle = None
+
+    def update(self, qx, qy, qz, qw):
+        # 1. Get the current angle between -pi and pi
+        sin_half = np.sqrt(qx**2 + qy**2 + qz**2)
+        current_angle = 2.0 * np.atan2(sin_half, qw)
+        
+        if self.last_angle is None:
+            self.last_angle = current_angle
+            self.total_angle = current_angle
+            return self.total_angle
+
+        # 2. Find the change since last time
+        diff = current_angle - self.last_angle
+        
+        # 3. Fix the jump if it crossed the border
+        if diff > np.pi:
+            diff -= 2.0 * np.pi
+        elif diff < -np.pi:
+            diff += 2.0 * np.pi
+            
+        # 4. Add the true change to the total count
+        self.total_angle += diff
+        self.last_angle = current_angle
+        
+        return self.total_angle
 
 
 class Controller(Node):
@@ -257,7 +288,7 @@ class Controller(Node):
         C = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
         C = C.transpose(1,2,0).copy()
 
-        Q, R = 100* np.diag(np.array([1, 1, 0.8])), 0.5*np.eye(2)
+        Q, R = 1000* np.diag(np.array([1, 1, 0.8])), 0.5*np.eye(2)
         Theta = Polytope(A = np.block([[np.eye(2)], [-np.eye(2)]]),
                         b=np.ones((4,1)))
 
@@ -284,7 +315,7 @@ class Controller(Node):
             "verbose": True,
             "svd": False,
             'xBound':(-np.array([10, 5, 1e4]), np.array([10, 5, 1e4])),
-            'uBound':(-np.array([0.3, 1.60]), np.array([0.3, 1.60])),
+            'uBound':(-np.array([0.46, 1.90]), np.array([0.46, 1.90])),
             "name": "turtle_controller",
             'W': W,
             'E': E,
@@ -292,7 +323,7 @@ class Controller(Node):
             'lam': 1,
             'theta': Theta,
             'par_filter': 'kf',
-            'lpv_flag': False,
+            'lpv_flag': True,
             'ref': 'ref'
         }
 
@@ -321,9 +352,8 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
-        self.file_path = "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_harmonic_pose.csv"
+        self.file_path = "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle_pose.csv"
         self.curr_x = [0., 0., 0.]
-        self.load_trajectory_from_file()
 
         self.controller.initialize(self.mode, self.constraints, P=P)
 
@@ -349,14 +379,16 @@ class Controller(Node):
             )
         self.ref = None
 
+        self.start = True
         self.sub_odom = self.create_subscription(
-            Odometry, 'odom', self.odom_callback, 10
+            PoseStamped, 'donatello/donatello', self.odom_callback, 10
         )
+        # self.load_trajectory_from_file()
         self.get_logger().info('initialization done !')
 
-        self.start = True
+        self.ref_pub = self.create_publisher(Pose2D, 'trajectory', 10)
         self.start_pub = self.create_publisher(Bool, 'cmd_done', 10)
-        self.timer = self.create_timer(1 / 30, self.timer_callback)
+        self.timer = self.create_timer(1. / 30, self.timer_callback)
         self.timer2 = self.create_timer(1.0/15, self.callback_timer2)
 
     def ref_callback(self, msg: Pose2D):
@@ -376,11 +408,14 @@ class Controller(Node):
     def odom_callback(self, msg):
         """Receive current state from odometry."""
         # Calculate theta from quaternion
-        theta = 2 * np.arctan2(msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
+        theta = 2 * np.arctan2(msg.pose.orientation.z, msg.pose.orientation.w)
         # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
-        self.curr_x = np.array([msg.pose.pose.position.x,
-                                msg.pose.pose.position.y, msg.pose.pose.orientation.z])
+        self.curr_x = np.array([msg.pose.position.x,
+                                msg.pose.position.y, theta])
+        if self.start:
+            self.load_trajectory_from_file()
+            self.start = False
 
     def load_trajectory_from_file(self):
         """Load the trajectory from a file."""
@@ -395,8 +430,8 @@ class Controller(Node):
             with open(self.file_path, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    self.path[0].append(0.5*float(row['x']) + self.curr_x[0])
-                    self.path[1].append(0.5*float(row['y']) + self.curr_x[1])
+                    self.path[0].append(float(row['x']) + self.curr_x[0])
+                    self.path[1].append(float(row['y']) + self.curr_x[1])
                     self.path[2].append(float(row['theta']) + self.curr_x[2])
 
     def callback_timer2(self):
@@ -408,11 +443,12 @@ class Controller(Node):
             start_msg = Bool()
             start_msg.data = True
             self.start_pub.publish(start_msg)
-        if self.start:
+        if not self.start:
             out_msg = Pose2D()
             out_msg.x = self.path[0][self.last_index]
             out_msg.y = self.path[1][self.last_index]
             out_msg.theta = self.path[2][self.last_index]  #np.atan2(out_msg.y - self.curr_x[1], out_msg.x - self.curr_x[0])  # self.path[2][self.last_index]  #
+            self.ref_pub.publish(out_msg)
             self.ref = [out_msg.x, out_msg.y, out_msg.theta]
             # if np.linalg.norm(np.array(self.curr_x[:2]) - np.array(self.ref[:2])) <= 0.1:
             #     self.last_index = (self.last_index + 1)

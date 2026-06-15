@@ -3,7 +3,7 @@ import math
 from pathlib import Path
 
 FS = 30.0
-DURATION = 10.0
+DURATION = 20.0
 N = int(FS * DURATION)
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
