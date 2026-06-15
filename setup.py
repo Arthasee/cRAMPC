@@ -33,6 +33,8 @@ setup(
             'path_generator = cRAMPC.path_generator:main',
             'prop = cRAMPC.test_propagation:main',
             'generate_circle_traj = cRAMPC.generate_circle_traj:main',
+            'plotter = cRAMPC.sim_plot:main',
+            'offset_reset = cRAMPC.offset_reset_service:main'
         ],
     },
 )
