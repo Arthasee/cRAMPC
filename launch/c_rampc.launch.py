@@ -149,6 +149,46 @@ def generate_launch_description():
         "ref_type", default_value='ref',
         description="Whether the reference is a point or a trajectory"
     )
+    hostname_arg = actions.DeclareLaunchArgument(
+        'hostname',
+        default_value='192.168.50.56',
+        description='Vicon server hostname or IP address'
+    )
+    buffer_size_arg = actions.DeclareLaunchArgument(
+        'buffer_size',
+        default_value='200',
+        description='Buffer size for Vicon data'
+    )
+    # topic_namespace_arg = DeclareLaunchArgument(
+    #     'topic_namespace',
+    #     default_value='vicon',
+    #     description='Topic namespace for Vicon messages'
+    # )
+    world_frame_arg = actions.DeclareLaunchArgument(
+        'world_frame',
+        default_value='map',
+        description='World frame for the tf2 transformations'
+    )
+    vicon_frame_arg = actions.DeclareLaunchArgument(
+        'vicon_frame',
+        default_value='vicon',
+        description='Vicon frame for the tf2 transformations'
+    )
+    map_xyz_arg = actions.DeclareLaunchArgument(
+        'map_xyz',
+        default_value='[0.0, 0.0, 0.0]',
+        description='XYZ translation for coordinate frame mapping'
+    )
+    map_rpy_arg = actions.DeclareLaunchArgument(
+        'map_rpy',
+        default_value='[0.0, 0.0, 0.0]',
+        description='RPY rotation for coordinate frame mapping'
+    )
+    map_rpy_in_degrees_arg = actions.DeclareLaunchArgument(
+        'map_rpy_in_degrees',
+        default_value='false',
+        description='Whether RPY values are in degrees (true) or radians (false)'
+    )
 
     robot_name = substitutions.LaunchConfiguration('robot_name')
     flavor = substitutions.LaunchConfiguration('flavor')
@@ -164,6 +204,14 @@ def generate_launch_description():
     size_u = substitutions.LaunchConfiguration('size_u')
     size_y = substitutions.LaunchConfiguration('size_y')
     ref_type = substitutions.LaunchConfiguration('ref_type')
+    hostname = substitutions.LaunchConfiguration('hostname')
+    buffer_size = substitutions.LaunchConfiguration('buffer_size')
+    # topic_namespace = LaunchConfiguration('topic_namespace')
+    world_frame = substitutions.LaunchConfiguration('world_frame')
+    vicon_frame = substitutions.LaunchConfiguration('vicon_frame')
+    map_xyz = substitutions.LaunchConfiguration('map_xyz')
+    map_rpy = substitutions.LaunchConfiguration('map_rpy')
+    map_rpy_in_degrees = substitutions.LaunchConfiguration('map_rpy_in_degrees')
 
     pkg_share = get_package_share_directory('cRAMPC')
     return LaunchDescription(
@@ -182,6 +230,13 @@ def generate_launch_description():
             size_u_arg,
             size_y_arg,
             ref_type_arg,
+            hostname_arg,
+            buffer_size_arg,
+            world_frame_arg,
+            vicon_frame_arg,
+            map_xyz_arg,
+            map_rpy_arg,
+            map_rpy_in_degrees_arg,
             Node(
                 namespace=robot_name,
                 package='bag_recorder_py',
@@ -200,6 +255,35 @@ def generate_launch_description():
                 remappings=[
                     ('odometry/filtered', 'odom_ekf'),
                 ],
+            ),
+            Node(
+                package='vicon_receiver',
+                executable='vicon_client',
+                output='screen',
+                parameters=[{
+                    'hostname': hostname, 
+                    'buffer_size': buffer_size, 
+                    'namespace': robot_name,
+                    'world_frame': world_frame,
+                    'vicon_frame': vicon_frame,
+                    'map_xyz': map_xyz,
+                    'map_rpy': map_rpy,
+                    'map_rpy_in_degrees': map_rpy_in_degrees
+                    }],
+                # remappings=[
+                #     ('donatello/donatello', 'ground_truth')
+                #     ]
+            ),
+            Node(
+                namespace=robot_name,
+                package='cRAMPC',
+                executable='offset_reset',
+                name='offset_reset',
+                output='screen',
+                parameters=[{
+                    'vicon_topic': 'donatello/donatello',
+                    'republished_topic': 'odom_vicon'
+                }]
             ),
             Node(
                 namespace=robot_name,
@@ -224,13 +308,14 @@ def generate_launch_description():
                 ],
                 on_exit=launch.actions.Shutdown(),
             ),
-            Node(
-                namespace=robot_name,
-                package='assgn_smv',
-                executable='plotter',
-                name='plot_node',
-                output='screen',
-            )
+            # Node(
+            #     namespace=robot_name,
+            #     package='cRAMPC',
+            #     executable='plotter',
+            #     name='plot_node',
+            #     output='screen',
+            # ),
+
             # Node(
             #     namespace=robot_name,
             #     package="cRAMPC",
