@@ -67,7 +67,7 @@ def generate_harmonic():
         dx_dt = x_speed
         theta = math.atan2(dy_dt, dx_dt)
 
-        rows.append([x, y, theta])
+        rows.append([y, x, -theta])
 
     return rows
 
