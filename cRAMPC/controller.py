@@ -45,13 +45,10 @@ class AngleTracker:
         self.axis = axis
 
     def update(self, qx, qy, qz, qw):
-        # 1. Get the magnitude of the vector part
         sin_half = np.sqrt(qx**2 + qy**2 + qz**2)
-        
-        # 2. Calculate the raw unsigned angle
+
         current_angle = 2.0 * np.arctan2(sin_half, qw)
-        
-        # 3. Use the dot product to see if we are moving forward or backward
+
         # This projects the quaternion vector onto your chosen rotation axis
         dot = qx * self.axis[0] + qy * self.axis[1] + qz * self.axis[2]
         if dot < 0:
@@ -62,19 +59,16 @@ class AngleTracker:
             self.total_angle = current_angle
             return self.total_angle
 
-        # 4. Find the true change since last time
         diff = current_angle - self.last_angle
-        
-        # 5. Fix the jump if it crossed the +/- pi border
+
         if diff > np.pi:
             diff -= 2.0 * np.pi
         elif diff < -np.pi:
             diff += 2.0 * np.pi
-            
-        # 6. Add the true change to the total count
+
         self.total_angle += diff
         self.last_angle = current_angle
-        
+
         return self.total_angle
 
 
@@ -291,29 +285,30 @@ class Controller(Node):
         self.last_theta = 0.0
 
         # npzfile = np.load(os.path.join('src/cRAMPC/config', 'system_matrices.npz'))
-        A = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
-        A = A.transpose(1,2,0).copy()
+        A = np.block([[[np.eye(3)]], [[np.zeros((3, 3))]], [[np.zeros((3, 3))]]])
+        A = A.transpose(1, 2, 0).copy()
 
-        B = np.block([[[np.zeros((2,2))],[0, 1]],[[1, 0], [np.zeros((2,2))]],[[np.zeros((1,2))],[1, 0], [np.zeros((1,2))]]])/30
-        B = B.transpose(1,2,0).copy()
+        B = np.block([[[np.zeros((2, 2))], [0, 1]], [[1, 0], [np.zeros((2, 2))]],
+                      [[np.zeros((1, 2))], [1, 0], [np.zeros((1, 2))]]])/30
+        B = B.transpose(1, 2, 0).copy()
 
+        C = np.block([[[np.eye(3)]], [[np.zeros((3, 3))]], [[np.zeros((3, 3))]]])
+        C = C.transpose(1, 2, 0).copy()
 
-        C = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
-        C = C.transpose(1,2,0).copy()
-
-        Q, R = 1000* np.diag(np.array([1, 1, 0.5])), 0.5*np.eye(2)
-        Theta = Polytope(A = np.block([[np.eye(2)], [-np.eye(2)]]),
-                        b=np.ones((4,1)))
+        Q, R = 1000*np.diag(np.array([1, 1, 1])), 0.5*np.eye(2)
+        Theta = Polytope(A=np.block([[np.eye(2)], [-np.eye(2)]]), b=np.ones((4, 1)))
 
         # Define the MPC parameters
         N = 10  # Prediction horizon
 
         W = Polytope(
-                        A=np.block([[np.eye(3)], [-np.eye(3)]]), b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
+                        A=np.block([[np.eye(3)], [-np.eye(3)]]),
+                        b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
                     )
 
         E = Polytope(
-                        A=np.block([[np.eye(3)], [-np.eye(3)]]), b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
+                        A=np.block([[np.eye(3)], [-np.eye(3)]]),
+                        b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
                     )
 
         # Theta_c = Polytope()
@@ -324,12 +319,12 @@ class Controller(Node):
         K, P = npz2file['arr_0'], npz2file['arr_1']
 
         options = {
-            "solver": "osqp",
-            "verbose": True,
-            "svd": False,
-            'xBound':(-np.array([10, 5, 1e4]), np.array([10, 5, 1e4])),
-            'uBound':(-np.array([0.46, 1.90]), np.array([0.46, 1.90])),
-            "name": "turtle_controller",
+            'solver': 'osqp',
+            'verbose': True,
+            'svd': False,
+            'xBound': (-np.array([10, 5, 1e4]), np.array([10, 5, 1e4])),
+            'uBound': (-np.array([0.46, 1.90]), np.array([0.46, 1.90])),
+            'name': 'turtle_controller',
             'W': W,
             'E': E,
             'K': K,
@@ -366,7 +361,7 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
-        self.file_path = "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_harmonic_pose.csv"
+        self.file_path = '/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/Y_segment_0.csv'
         self.curr_x = [0., 0., 0.]
 
         self.controller.initialize(self.mode, self.constraints, P=P)
@@ -389,7 +384,7 @@ class Controller(Node):
             )
         else:
             self.sub_ref = self.create_subscription(
-                Pose2D, 'trajectory', self.ref_callback, 10 
+                Pose2D, 'trajectory', self.ref_callback, 10
             )
         self.ref = None
 
@@ -405,7 +400,7 @@ class Controller(Node):
         self.ref_pub = self.create_publisher(Pose2D, 'trajectory', 10)
         self.start_pub = self.create_publisher(Bool, 'cmd_done', 10)
         self.timer = self.create_timer(1. / 30, self.timer_callback)
-        self.timer2 = self.create_timer(1.0/15, self.callback_timer2)
+        self.timer2 = self.create_timer(1.0/30, self.callback_timer2)
 
     def ref_callback(self, msg: Pose2D):
         """Receive reference trajectory or setpoint."""
@@ -431,7 +426,8 @@ class Controller(Node):
             msg.pose.orientation.w,
         )
         # theta = 2*np.arctan2(msg.pose.orientation.z, msg.pose.orientation.w)
-        self.pub_vicon.publish(Pose2D(x=msg.pose.position.x, y=msg.pose.position.y, theta=theta))
+        self.pub_vicon.publish(Pose2D(x=msg.pose.position.x, y=msg.pose.position.y,
+                                      theta=theta))
         # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
         self.curr_x = np.array([msg.pose.position.x,

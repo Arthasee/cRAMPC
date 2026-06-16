@@ -256,35 +256,35 @@ def generate_launch_description():
             #         ('odometry/filtered', 'odom_ekf'),
             #     ],
             # ),
-            Node(
-                package='vicon_receiver',
-                executable='vicon_client',
-                output='screen',
-                parameters=[{
-                    'hostname': hostname, 
-                    'buffer_size': buffer_size, 
-                    'namespace': robot_name,
-                    'world_frame': world_frame,
-                    'vicon_frame': vicon_frame,
-                    'map_xyz': map_xyz,
-                    'map_rpy': map_rpy,
-                    'map_rpy_in_degrees': map_rpy_in_degrees
-                    }],
-                # remappings=[
-                #     ('donatello/donatello', 'ground_truth')
-                #     ]
-            ),
-            Node(
-                namespace=robot_name,
-                package='cRAMPC',
-                executable='offset_reset',
-                name='offset_reset',
-                output='screen',
-                parameters=[{
-                    'vicon_topic': 'donatello/donatello',
-                    'republished_topic': 'odom_vicon'
-                }]
-            ),
+            # Node(
+            #     package='vicon_receiver',
+            #     executable='vicon_client',
+            #     output='screen',
+            #     parameters=[{
+            #         'hostname': hostname, 
+            #         'buffer_size': buffer_size, 
+            #         'namespace': robot_name,
+            #         'world_frame': world_frame,
+            #         'vicon_frame': vicon_frame,
+            #         'map_xyz': map_xyz,
+            #         'map_rpy': map_rpy,
+            #         'map_rpy_in_degrees': map_rpy_in_degrees
+            #         }],
+            #     # remappings=[
+            #     #     ('donatello/donatello', 'ground_truth')
+            #     #     ]
+            # ),
+            # Node(
+            #     namespace=robot_name,
+            #     package='cRAMPC',
+            #     executable='offset_reset',
+            #     name='offset_reset',
+            #     output='screen',
+            #     parameters=[{
+            #         'vicon_topic': 'donatello/donatello',
+            #         'republished_topic': 'odom_vicon'
+            #     }]
+            # ),
             Node(
                 namespace=robot_name,
                 package='cRAMPC',
