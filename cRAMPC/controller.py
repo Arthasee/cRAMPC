@@ -35,30 +35,43 @@ from rclpy.node import Node
 
 
 class AngleTracker:
-    def __init__(self):
+    def __init__(self, axis=(0, 0, 1)):
+        """
+        Set the main axis of rotation. 
+        Default is Z-axis (0, 0, 1). change to (1, 0, 0) for X or (0, 1, 0) for Y.
+        """
         self.total_angle = 0.0
         self.last_angle = None
+        self.axis = axis
 
     def update(self, qx, qy, qz, qw):
-        # 1. Get the current angle between -pi and pi
+        # 1. Get the magnitude of the vector part
         sin_half = np.sqrt(qx**2 + qy**2 + qz**2)
-        current_angle = 2.0 * np.atan2(sin_half, qw)
         
+        # 2. Calculate the raw unsigned angle
+        current_angle = 2.0 * np.arctan2(sin_half, qw)
+        
+        # 3. Use the dot product to see if we are moving forward or backward
+        # This projects the quaternion vector onto your chosen rotation axis
+        dot = qx * self.axis[0] + qy * self.axis[1] + qz * self.axis[2]
+        if dot < 0:
+            current_angle = -current_angle
+
         if self.last_angle is None:
             self.last_angle = current_angle
             self.total_angle = current_angle
             return self.total_angle
 
-        # 2. Find the change since last time
+        # 4. Find the true change since last time
         diff = current_angle - self.last_angle
         
-        # 3. Fix the jump if it crossed the border
+        # 5. Fix the jump if it crossed the +/- pi border
         if diff > np.pi:
             diff -= 2.0 * np.pi
         elif diff < -np.pi:
             diff += 2.0 * np.pi
             
-        # 4. Add the true change to the total count
+        # 6. Add the true change to the total count
         self.total_angle += diff
         self.last_angle = current_angle
         
@@ -288,7 +301,7 @@ class Controller(Node):
         C = np.block([[[np.eye(3)]],[[np.zeros((3,3))]],[[np.zeros((3,3))]]])
         C = C.transpose(1,2,0).copy()
 
-        Q, R = 1000* np.diag(np.array([1, 1, 0.8])), 0.5*np.eye(2)
+        Q, R = 1000* np.diag(np.array([1, 1, 0.5])), 0.5*np.eye(2)
         Theta = Polytope(A = np.block([[np.eye(2)], [-np.eye(2)]]),
                         b=np.ones((4,1)))
 
@@ -324,7 +337,8 @@ class Controller(Node):
             'theta': Theta,
             'par_filter': 'kf',
             'lpv_flag': True,
-            'ref': 'ref'
+            'ref': 'ref',
+            'max_delta_th': 0.001
         }
 
         # -------------SHOULD BE DELETED AFTER TESTING PHASE------------- #
@@ -352,7 +366,7 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
-        self.file_path = "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle_pose.csv"
+        self.file_path = "/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_harmonic_pose.csv"
         self.curr_x = [0., 0., 0.]
 
         self.controller.initialize(self.mode, self.constraints, P=P)
@@ -380,9 +394,11 @@ class Controller(Node):
         self.ref = None
 
         self.start = True
+        self.angle_tracker = AngleTracker()
         self.sub_odom = self.create_subscription(
             PoseStamped, 'donatello/donatello', self.odom_callback, 10
         )
+        self.pub_vicon = self.create_publisher(Pose2D, 'vicon_pose', 10)
         # self.load_trajectory_from_file()
         self.get_logger().info('initialization done !')
 
@@ -408,7 +424,14 @@ class Controller(Node):
     def odom_callback(self, msg):
         """Receive current state from odometry."""
         # Calculate theta from quaternion
-        theta = 2 * np.arctan2(msg.pose.orientation.z, msg.pose.orientation.w)
+        theta = self.angle_tracker.update(
+            msg.pose.orientation.x,
+            msg.pose.orientation.y,
+            msg.pose.orientation.z,
+            msg.pose.orientation.w,
+        )
+        # theta = 2*np.arctan2(msg.pose.orientation.z, msg.pose.orientation.w)
+        self.pub_vicon.publish(Pose2D(x=msg.pose.position.x, y=msg.pose.position.y, theta=theta))
         # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
         self.curr_x = np.array([msg.pose.position.x,

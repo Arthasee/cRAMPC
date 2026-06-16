@@ -77,7 +77,7 @@ class CRAMPC(CRMPC):
         
         c = self.sys.C.transpose(2, 0, 1)
 
-        self.filter = Filter(ab_, c, self.theta, self.theta_c, self.options.par_filter, forgetting=.98)
+        self.filter = Filter(ab_, c, self.theta, self.theta_c, self.options.par_filter, forgetting=.7)
 
         self.param_set_learn = SetUpdater(
             ab_, c, self.theta, self.theta_c, self.W, self.E, length

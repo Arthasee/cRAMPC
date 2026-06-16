@@ -38,6 +38,10 @@ class SimPlotNode(Node): # MODIFY NAME
         self.last_ref_y_ = 0.0
         self.last_ref_theta_ = 0.0
 
+        self.last_vicon_x_ = 0.0
+        self.last_vicon_y_ = 0.0
+        self.last_vicon_theta_ = 0.0
+
         self.last_ekf_x_ = 0.0
         self.last_ekf_y_ = 0.0
         self.last_ekf_theta_ = 0.0
@@ -48,6 +52,10 @@ class SimPlotNode(Node): # MODIFY NAME
         self.ref_x_ = collections.deque([0.0],maxlen=deque_len)
         self.ref_y_ = collections.deque([0.0],maxlen=deque_len)
         self.ref_theta_ = collections.deque([0.0],maxlen=deque_len)
+
+        self.vicon_x_ = collections.deque([0.0],maxlen=deque_len)
+        self.vicon_y_ = collections.deque([0.0],maxlen=deque_len)
+        self.vicon_theta_ = collections.deque([0.0],maxlen=deque_len)
 
         self.ekf_x_ = collections.deque([0.0],maxlen=deque_len)
         self.ekf_y_ = collections.deque([0.0],maxlen=deque_len)
@@ -61,6 +69,10 @@ class SimPlotNode(Node): # MODIFY NAME
         self.state_sub_ = self.create_subscription(
             PoseStamped, "donatello/donatello",
             self.update_state_callback,1)
+        
+        self.vicon_sub_ = self.create_subscription(
+            Pose2D, "vicon_pose",
+            self.update_vicon_callback,1)
         
         # Subscription to Reference Trajectory Pose
         
@@ -88,6 +100,11 @@ class SimPlotNode(Node): # MODIFY NAME
         self.last_x_=in_msg.pose.position.x
         self.last_y_=in_msg.pose.position.y
         self.last_theta_= 2*np.arctan2(in_msg.pose.orientation.z, in_msg.pose.orientation.w)
+    
+    def update_vicon_callback(self, in_msg: Pose2D):
+        self.last_vicon_x_ = in_msg.x
+        self.last_vicon_y_ = in_msg.y
+        self.last_vicon_theta_ = in_msg.theta
 
     def update_ref_callback(self, in_msg: Pose2D):
         self.last_ref_x_ = in_msg.x
@@ -112,6 +129,10 @@ class SimPlotNode(Node): # MODIFY NAME
         self.ref_x_.append(self.last_ref_x_)
         self.ref_y_.append(self.last_ref_y_)
         self.ref_theta_.append(self.last_ref_theta_)
+
+        self.vicon_x_.append(self.last_vicon_x_)
+        self.vicon_y_.append(self.last_vicon_y_)
+        self.vicon_theta_.append(self.last_vicon_theta_)
 
         self.ekf_x_.append(self.last_ekf_x_)
         self.ekf_y_.append(self.last_ekf_y_)
@@ -155,6 +176,7 @@ class SimPlotNode(Node): # MODIFY NAME
         ax1.plot(self.x_, self.y_, 'b-', linewidth=1.5, label='Ground Truth')
         ax1.plot(self.ref_x_, self.ref_y_, 'r--', linewidth=1.0, label='Reference')
         ax1.plot(self.ekf_x_, self.ekf_y_, 'g-', linewidth=1.0, label='EKF Odom')
+        ax1.plot(self.vicon_x_, self.vicon_y_, 'm-', linewidth=1.0, label='Vicon Unwrapped')
         # if self.x_ and self.y_ and (abs(self.last_vx_) > 1e-6):
         ax1.quiver(self.x_[-1], self.y_[-1],
                     self.last_vx_*cos(self.theta_[-1]),
@@ -171,6 +193,7 @@ class SimPlotNode(Node): # MODIFY NAME
         ax2.plot(self.time_, self.x_, 'b-', linewidth=1.0, label=r'$x$')
         ax2.plot(self.time_, self.ref_x_, 'r--', linewidth=1.0, label=r'$x_{ref}$')
         ax2.plot(self.time_, self.ekf_x_, 'g-', linewidth=1.0, label=r'$x_{ekf}$')
+        ax2.plot(self.time_, self.vicon_x_, 'm-', linewidth=1.0, label=r'$x_{vicon}$')
         ax2.set_ylabel('x (m)')
         ax2.set_xlim(self.time_[0], self.time_[-1])
         ax2.legend(fontsize=7, loc='upper left')
@@ -180,6 +203,7 @@ class SimPlotNode(Node): # MODIFY NAME
         ax3.plot(self.time_, self.y_, 'b-', linewidth=1.0, label=r'$y$')
         ax3.plot(self.time_, self.ref_y_, 'r--', linewidth=1.0, label=r'$y_{ref}$')
         ax3.plot(self.time_, self.ekf_y_, 'g-', linewidth=1.0, label=r'$y_{ekf}$')
+        ax3.plot(self.time_, self.vicon_y_, 'm-', linewidth=1.0, label=r'$y_{vicon}$')
         ax3.set_ylabel('y (m)')
         ax3.set_xlim(self.time_[0], self.time_[-1])
         ax3.legend(fontsize=7, loc='upper left')
@@ -189,6 +213,7 @@ class SimPlotNode(Node): # MODIFY NAME
         ax4.plot(self.time_, self.theta_, 'b-', linewidth=1.0, label=r'$\theta$')
         ax4.plot(self.time_, self.ref_theta_, 'r--', linewidth=1.0, label=r'$\theta_{ref}$')
         ax4.plot(self.time_, self.ekf_theta_, 'g-', linewidth=1.0, label=r'$\theta_{ekf}$')
+        ax4.plot(self.time_, self.vicon_theta_, 'm-', linewidth=1.0, label=r'$\theta_{vicon}$')
         ax4.set_xlabel('Time (s)')
         ax4.set_ylabel(r'$\theta$ (rad)')
         ax4.set_xlim(self.time_[0], self.time_[-1])
