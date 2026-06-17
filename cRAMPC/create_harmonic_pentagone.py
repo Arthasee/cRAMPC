@@ -18,7 +18,7 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def regular_pentagon_vertices(radius=2.0, cx=0.0, cy=0.0):
+def regular_pentagon_vertices(radius=1.0, cx=0.0, cy=0.0):
     start = -math.pi / 2
     return [
         (
@@ -30,7 +30,7 @@ def regular_pentagon_vertices(radius=2.0, cx=0.0, cy=0.0):
 
 
 def generate_pentagon():
-    v = regular_pentagon_vertices(radius=2.0)
+    v = regular_pentagon_vertices(radius=1.0)
     rows = []
 
     for i in range(N):

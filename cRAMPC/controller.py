@@ -295,7 +295,7 @@ class Controller(Node):
         C = np.block([[[np.eye(3)]], [[np.zeros((3, 3))]], [[np.zeros((3, 3))]]])
         C = C.transpose(1, 2, 0).copy()
 
-        Q, R = 1000*np.diag(np.array([1, 1, 1])), 0.5*np.eye(2)
+        Q, R = 200*np.diag(np.array([1, 1, 0.8])), 0.5*np.eye(2)
         Theta = Polytope(A=np.block([[np.eye(2)], [-np.eye(2)]]), b=np.ones((4, 1)))
 
         # Define the MPC parameters
@@ -361,7 +361,7 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
-        self.file_path = '/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/Y_segment_0.csv'
+        self.file_path = '/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv'
         self.curr_x = [0., 0., 0.]
 
         self.controller.initialize(self.mode, self.constraints, P=P)
@@ -427,11 +427,11 @@ class Controller(Node):
         )
         # theta = 2*np.arctan2(msg.pose.orientation.z, msg.pose.orientation.w)
         self.pub_vicon.publish(Pose2D(x=msg.pose.position.x, y=msg.pose.position.y,
-                                      theta=theta))
+                                      theta=msg.pose.orientation.z))  # theta))
         # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
         self.curr_x = np.array([msg.pose.position.x,
-                                msg.pose.position.y, theta])
+                                msg.pose.position.y, msg.pose.orientation.z])  # theta])
         if self.start:
             self.load_trajectory_from_file()
             self.start = False
@@ -449,9 +449,9 @@ class Controller(Node):
             with open(self.file_path, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    self.path[0].append(float(row['x']) + self.curr_x[0])
-                    self.path[1].append(float(row['y']) + self.curr_x[1])
-                    self.path[2].append(float(row['theta']) + self.curr_x[2])
+                    self.path[0].append(-float(row['y']) + self.curr_x[0])
+                    self.path[1].append(float(row['x']) + self.curr_x[1])
+                    self.path[2].append(float(row['theta']) + self.curr_x[2]-np.pi/2)
 
     def callback_timer2(self):
         self.last_index = (self.last_index + 1)

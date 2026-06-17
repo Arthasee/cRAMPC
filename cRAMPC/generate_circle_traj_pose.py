@@ -117,7 +117,7 @@ def main(args=None):
                         help='Output CSV file path')
     parsed = parser.parse_args(args)
 
-    circle_angle = np.arange(0, 2*np.pi, 2*np.pi/(20*30))
+    circle_angle = np.arange(0, 4*np.pi, 2*np.pi/(25*30))
     circle_pose = np.array([[0.5*np.cos(a)-0.5, 0.5*np.sin(a), a-np.pi/2] for a in circle_angle])
     output = os.path.normpath(DEFAULT_OUTPUT)
     with open(output, 'w', newline='') as f:

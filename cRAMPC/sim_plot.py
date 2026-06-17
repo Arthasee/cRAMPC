@@ -99,7 +99,7 @@ class SimPlotNode(Node): # MODIFY NAME
     def update_state_callback(self, in_msg: PoseStamped):
         self.last_x_=in_msg.pose.position.x
         self.last_y_=in_msg.pose.position.y
-        self.last_theta_= 2*np.arctan2(in_msg.pose.orientation.z, in_msg.pose.orientation.w)
+        self.last_theta_= in_msg.pose.orientation.z  # 2*np.arctan2(in_msg.pose.orientation.z, in_msg.pose.orientation.w)
     
     def update_vicon_callback(self, in_msg: Pose2D):
         self.last_vicon_x_ = in_msg.x
