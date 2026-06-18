@@ -9,7 +9,7 @@ import os
 def generate_launch_description():
     """Generate the launch description for c_rampc."""
     robot_name_arg = actions.DeclareLaunchArgument(
-        "robot_name", default_value="IDonat", description="Namespace for the robot"
+        "robot_name", default_value="IDonatello", description="Namespace for the robot"
     )
     flavor_arg = actions.DeclareLaunchArgument(
         "flavor",
@@ -308,22 +308,22 @@ def generate_launch_description():
                 ],
                 on_exit=launch.actions.Shutdown(),
             ),
-            Node(
-                namespace=robot_name,
-                package='cRAMPC',
-                executable='plotter',
-                name='plot_node',
-                output='screen',
-            ),
+            # Node(
+            #     namespace=robot_name,
+            #     package='cRAMPC',
+            #     executable='plotter',
+            #     name='plot_node',
+            #     output='screen',
+            # ),
 
-            Node(
-                namespace=robot_name,
-                package="cRAMPC",
-                executable="prop",
-                name='prop',
-                output='screen',
-                on_exit=launch.actions.Shutdown(),
-            ),
+            # Node(
+            #     namespace=robot_name,
+            #     package="cRAMPC",
+            #     executable="prop",
+            #     name='prop',
+            #     output='screen',
+            #     on_exit=launch.actions.Shutdown(),
+            # ),
             # Node(
             #     namespace=robot_name,
             #     package='cRAMPC',

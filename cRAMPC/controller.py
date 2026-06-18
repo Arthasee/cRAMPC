@@ -295,7 +295,7 @@ class Controller(Node):
         C = np.block([[[np.eye(3)]], [[np.zeros((3, 3))]], [[np.zeros((3, 3))]]])
         C = C.transpose(1, 2, 0).copy()
 
-        Q, R = 200*np.diag(np.array([1, 1, 0.8])), 0.5*np.eye(2)
+        Q, R = 200*np.diag(np.array([1, 1, 0.8])), 0.2*np.eye(2)
         Theta = Polytope(A=np.block([[np.eye(2)], [-np.eye(2)]]), b=np.ones((4, 1)))
 
         # Define the MPC parameters
@@ -303,12 +303,12 @@ class Controller(Node):
 
         W = Polytope(
                         A=np.block([[np.eye(3)], [-np.eye(3)]]),
-                        b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
+                        b=np.array([0.018, 0.018, 0.065, 0.018, 0.018, 0.065])  # 0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180
                     )
 
         E = Polytope(
                         A=np.block([[np.eye(3)], [-np.eye(3)]]),
-                        b=np.array([0.01, 0.01, 0.01*np.pi/180, 0.01, 0.01, 0.01*np.pi/180])
+                        b=np.array([0.018, 0.018, 0.065, 0.018, 0.018, 0.065])
                     )
 
         # Theta_c = Polytope()
@@ -361,7 +361,7 @@ class Controller(Node):
         if self.recorder:
             self.pub_tube = self.create_publisher(PolytopeMsg, 'tube_set', 10)
             self.last_idx = (self.controller.N + 1) * self.controller.n
-        self.file_path = '/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/segment_0.csv'
+        self.file_path = '/home/stream/Personals/Fabio/ros2_ws/src/cRAMPC/config/trajectory_circle_pose.csv'
         self.curr_x = [0., 0., 0.]
 
         self.controller.initialize(self.mode, self.constraints, P=P)
@@ -391,7 +391,7 @@ class Controller(Node):
         self.start = True
         self.angle_tracker = AngleTracker()
         self.sub_odom = self.create_subscription(
-            PoseStamped, 'donatello/donatello', self.odom_callback, 10
+            Odometry, 'odom_ekf', self.odom_callback, 10
         )
         self.pub_vicon = self.create_publisher(Pose2D, 'vicon_pose', 10)
         # self.load_trajectory_from_file()
@@ -420,18 +420,18 @@ class Controller(Node):
         """Receive current state from odometry."""
         # Calculate theta from quaternion
         theta = self.angle_tracker.update(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w,
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
         )
         # theta = 2*np.arctan2(msg.pose.orientation.z, msg.pose.orientation.w)
-        self.pub_vicon.publish(Pose2D(x=msg.pose.position.x, y=msg.pose.position.y,
-                                      theta=msg.pose.orientation.z))  # theta))
+        self.pub_vicon.publish(Pose2D(x=msg.pose.pose.position.x, y=msg.pose.pose.position.y,
+                                      theta=theta))  # theta))
         # d_theta = self.last_theta - theta if self.last_theta is not None else 0.0
         self.last_theta = theta
-        self.curr_x = np.array([msg.pose.position.x,
-                                msg.pose.position.y, msg.pose.orientation.z])  # theta])
+        self.curr_x = np.array([msg.pose.pose.position.x,
+                                msg.pose.pose.position.y, theta])  # theta])
         if self.start:
             self.load_trajectory_from_file()
             self.start = False
@@ -451,7 +451,7 @@ class Controller(Node):
                 for row in reader:
                     self.path[0].append(-float(row['y']) + self.curr_x[0])
                     self.path[1].append(float(row['x']) + self.curr_x[1])
-                    self.path[2].append(float(row['theta']) + self.curr_x[2]-np.pi/2)
+                    self.path[2].append(float(row['theta']) + self.curr_x[2])
 
     def callback_timer2(self):
         self.last_index = (self.last_index + 1)
